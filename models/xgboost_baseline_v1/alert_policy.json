@@ -1,0 +1,8 @@
+{
+  "score_cutoff": 0.02558848261833191,
+  "comparator": ">=",
+  "selected_on": "validation scores",
+  "validation_alert_fraction_target": 0.005,
+  "model": "model.ubj",
+  "calibrated_probabilities": false
+}

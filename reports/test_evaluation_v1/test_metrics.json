@@ -1,0 +1,74 @@
+{
+  "xgboost": {
+    "evaluation_split": "test",
+    "rows": 862792,
+    "laundering_rows": 956,
+    "average_precision": 0.19595975487675435,
+    "pr_auc_trapezoidal": 0.19548128837982312,
+    "constant_score_average_precision": 0.0011080306725143488,
+    "rank_budget": {
+      "requested_alert_fraction": 0.005,
+      "budget_rows": 4313,
+      "tie_break": "descending score, ascending transaction ID",
+      "true_positives": 458,
+      "false_positives": 3855,
+      "false_negatives": 498,
+      "true_negatives": 857981,
+      "alerts": 4313,
+      "alert_fraction": 0.004998887333215885,
+      "precision": 0.10619058659865523,
+      "recall": 0.4790794979079498,
+      "false_positives_per_1000_non_laundering": 4.4730087858943
+    },
+    "fixed_score_rule": {
+      "cutoff": 0.023813266307115555,
+      "comparator": ">=",
+      "selected_on": "validation",
+      "true_positives": 591,
+      "false_positives": 8961,
+      "false_negatives": 365,
+      "true_negatives": 852875,
+      "alerts": 9552,
+      "alert_fraction": 0.011071034501942531,
+      "precision": 0.06187185929648241,
+      "recall": 0.6182008368200836,
+      "false_positives_per_1000_non_laundering": 10.397569839273364
+    }
+  },
+  "graphsage": {
+    "evaluation_split": "test",
+    "rows": 862792,
+    "laundering_rows": 956,
+    "average_precision": 0.20963075349490926,
+    "pr_auc_trapezoidal": 0.20913282399543784,
+    "constant_score_average_precision": 0.0011080306725143488,
+    "rank_budget": {
+      "requested_alert_fraction": 0.005,
+      "budget_rows": 4313,
+      "tie_break": "descending score, ascending transaction ID",
+      "true_positives": 478,
+      "false_positives": 3835,
+      "false_negatives": 478,
+      "true_negatives": 858001,
+      "alerts": 4313,
+      "alert_fraction": 0.004998887333215885,
+      "precision": 0.11082773011824716,
+      "recall": 0.5,
+      "false_positives_per_1000_non_laundering": 4.449802514631554
+    },
+    "fixed_score_rule": {
+      "cutoff": 0.01245023962110281,
+      "comparator": ">=",
+      "selected_on": "validation",
+      "true_positives": 584,
+      "false_positives": 7558,
+      "false_negatives": 372,
+      "true_negatives": 854278,
+      "alerts": 8142,
+      "alert_fraction": 0.009436805162773879,
+      "precision": 0.07172684844018669,
+      "recall": 0.6108786610878661,
+      "false_positives_per_1000_non_laundering": 8.76964991019173
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "best_epoch": 5,
+  "completed_epochs": 5,
+  "peak_process_memory_mib": 1445.390625,
+  "test_and_tail_evaluated": false,
+  "config": {
+    "epochs": 5,
+    "patience": 2,
+    "batch_size": 256,
+    "fanout": 5,
+    "threads": 2,
+    "seed": 42,
+    "learning_rate": 0.001,
+    "alert_fraction": 0.005,
+    "features": "/Users/saidarshithanubola/Desktop/Fraud Detection/data/features",
+    "graph": "/Users/saidarshithanubola/Desktop/Fraud Detection/data/temporal_graph",
+    "torch_version": "2.14.1",
+    "pyg_version": "2.8.1",
+    "selection": "validation average precision",
+    "loss": "unweighted binary cross entropy",
+    "architecture": "one-hop directional GraphSAGE, branch width 16, head width 64",
+    "sampling": "all training rows once per epoch in shuffled order",
+    "history_policy": "strictly earlier timestamps, including earlier unlabeled validation events",
+    "feature_schema_sha256": "f4e325aba1692bce173adc91c8b449f9458580be99655229cce7ba571d1d6944"
+  }
+}

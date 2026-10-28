@@ -1,0 +1,21 @@
+{
+  "benchmark_timestamp": "2026-10-28T13:38:13.841939+00:00",
+  "total_transactions_tested": 1000,
+  "total_alerts_dispatched": 2,
+  "total_wall_time_seconds": 3.747,
+  "throughput_tx_per_second": 266.9,
+  "latency_metrics_ms": {
+    "mean": 3.67,
+    "median_p50": 3.49,
+    "p95": 4.08,
+    "p99": 4.54,
+    "min": 3.15,
+    "max": 82.04
+  },
+  "target_evaluation": {
+    "target_threshold_ms": 200.0,
+    "compliance_percentage": 100.0,
+    "target_achieved": true,
+    "verdict": "PASS: Median and p95 latency are well below the 200 ms target."
+  }
+}

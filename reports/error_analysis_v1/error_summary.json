@@ -1,0 +1,188 @@
+{
+  "analysis_type": "post-test descriptive error review; no fitting or threshold changes",
+  "test_rows": 862792,
+  "seed": 42,
+  "examples_per_category": 5,
+  "case_policy": "offline rank_budget",
+  "alert_fraction": 0.005,
+  "primary_model_selected_before_test": "xgboost",
+  "reproduced_counts": {
+    "xgboost": {
+      "rank_budget": {
+        "true_positives": 458,
+        "false_positives": 3855,
+        "false_negatives": 498,
+        "true_negatives": 857981,
+        "alerts": 4313
+      },
+      "fixed_score_rule": {
+        "true_positives": 591,
+        "false_positives": 8961,
+        "false_negatives": 365,
+        "true_negatives": 852875,
+        "alerts": 9552
+      }
+    },
+    "graphsage": {
+      "rank_budget": {
+        "true_positives": 478,
+        "false_positives": 3835,
+        "false_negatives": 478,
+        "true_negatives": 858001,
+        "alerts": 4313
+      },
+      "fixed_score_rule": {
+        "true_positives": 584,
+        "false_positives": 7558,
+        "false_negatives": 372,
+        "true_negatives": 854278,
+        "alerts": 8142
+      }
+    }
+  },
+  "overlap_by_policy": {
+    "rank_budget": {
+      "both_alert": {
+        "rows": 1876,
+        "laundering": 374,
+        "non_laundering": 1502
+      },
+      "xgboost_only_alert": {
+        "rows": 2437,
+        "laundering": 84,
+        "non_laundering": 2353
+      },
+      "graphsage_only_alert": {
+        "rows": 2437,
+        "laundering": 104,
+        "non_laundering": 2333
+      },
+      "neither_alert": {
+        "rows": 856042,
+        "laundering": 394,
+        "non_laundering": 855648
+      }
+    },
+    "fixed_score_rule": {
+      "both_alert": {
+        "rows": 4092,
+        "laundering": 501,
+        "non_laundering": 3591
+      },
+      "xgboost_only_alert": {
+        "rows": 5460,
+        "laundering": 90,
+        "non_laundering": 5370
+      },
+      "graphsage_only_alert": {
+        "rows": 4050,
+        "laundering": 83,
+        "non_laundering": 3967
+      },
+      "neither_alert": {
+        "rows": 849190,
+        "laundering": 282,
+        "non_laundering": 848908
+      }
+    }
+  },
+  "samples": {
+    "xgboost_false_alert": {
+      "population_rows": 3855,
+      "transaction_ids": [
+        4359361,
+        4640042,
+        4644531,
+        4891205,
+        4953693
+      ]
+    },
+    "graphsage_false_alert": {
+      "population_rows": 3835,
+      "transaction_ids": [
+        4333025,
+        4756157,
+        4892426,
+        4926188,
+        4954714
+      ]
+    },
+    "xgboost_missed_laundering": {
+      "population_rows": 498,
+      "transaction_ids": [
+        3411068,
+        4247817,
+        4806502,
+        4815445,
+        4951315
+      ]
+    },
+    "graphsage_missed_laundering": {
+      "population_rows": 478,
+      "transaction_ids": [
+        4618616,
+        4619384,
+        4682770,
+        4878253,
+        5026500
+      ]
+    },
+    "laundering_caught_only_by_xgboost": {
+      "population_rows": 84,
+      "transaction_ids": [
+        2718750,
+        3162524,
+        4117776,
+        4389506,
+        4943840
+      ]
+    },
+    "laundering_caught_only_by_graphsage": {
+      "population_rows": 104,
+      "transaction_ids": [
+        2825513,
+        3961345,
+        4328405,
+        4777020,
+        4790071
+      ]
+    },
+    "laundering_missed_by_both": {
+      "population_rows": 394,
+      "transaction_ids": [
+        3683935,
+        4489218,
+        4619384,
+        4786358,
+        4844329
+      ]
+    },
+    "non_laundering_flagged_by_both": {
+      "population_rows": 1502,
+      "transaction_ids": [
+        4358274,
+        4377748,
+        4749996,
+        4944721,
+        5018180
+      ]
+    }
+  },
+  "distinct_review_cases": 39,
+  "history_context_rows": 486,
+  "input_fingerprints": {
+    "reports/test_evaluation_v1/evaluation_protocol.json": "ed602c001e05000683acc26e395a071f13024070c5f52a1ba09a25d884042e8b",
+    "reports/test_evaluation_v1/test_metrics.json": "4e030aba02de609259733e43f83808321b1e0fa8021800e13a08839113305f4e",
+    "reports/test_evaluation_v1/xgboost_test_scores.npy": "5df0f566121c9d639fff85ebf83eb5416dc6a92e25b1431fb931c29ad39f51b6",
+    "reports/test_evaluation_v1/graphsage_test_scores.npy": "d81e4398d03038ae4a4e3be4aac2a0ff202eea478f298748abb1866bd1629815"
+  },
+  "notes": [
+    "False alerts and misses are defined against synthetic transaction labels, not verified account roles.",
+    "Examples are uniformly sampled within each named category; they are not a representative sample of all transactions.",
+    "A case may belong to several categories. Empty categories are reported explicitly.",
+    "Raw scores from different models are not directly comparable calibrated probabilities. Ranks use each model separately.",
+    "Displayed past transactions are input context, not evidence of causal feature importance or a laundering chain.",
+    "Counts and recencies reconstructed from float32 logarithms are approximate; history contains transactions, not unique counterparties.",
+    "No test-driven retuning. SHAP/GNNExplainer remain a later project step."
+  ]
+}

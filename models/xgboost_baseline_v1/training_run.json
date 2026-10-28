@@ -1,0 +1,55 @@
+{
+  "project_title": "AI-Based Graph Analysis for Suspicious Transaction Detection and Account Risk Scoring",
+  "experiment": "XGBoost transaction baseline v1",
+  "created_utc": "2026-10-19T20:57:12.630335+00:00",
+  "parameters": {
+    "objective": "binary:logistic",
+    "eval_metric": [
+      "logloss",
+      "aucpr"
+    ],
+    "tree_method": "hist",
+    "device": "cpu",
+    "nthread": 2,
+    "max_depth": 4,
+    "max_bin": 64,
+    "eta": 0.1,
+    "min_child_weight": 1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "lambda": 1.0,
+    "alpha": 0.0,
+    "scale_pos_weight": 1.0,
+    "base_score": 0.0007787200735259491,
+    "seed": 42,
+    "verbosity": 1,
+    "validate_parameters": true
+  },
+  "maximum_boosting_rounds": 300,
+  "early_stopping_patience": 30,
+  "selection_metric": "validation aucpr (XGBoost continuous PR interpolation)",
+  "preset_validation_alert_fraction": 0.005,
+  "feature_schema_sha256": "f4e325aba1692bce173adc91c8b449f9458580be99655229cce7ba571d1d6944",
+  "source_csv_sha256": "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040",
+  "versions": {
+    "python": "3.14.7",
+    "xgboost": "3.4.1",
+    "numpy": "2.5.4",
+    "scikit_learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Darwin",
+    "machine": "arm64"
+  },
+  "label_balance": "Natural class distribution retained; no class weighting or resampling in this initial baseline.",
+  "test_and_tail_used": false,
+  "status": "complete",
+  "best_round_1_based": 287,
+  "saved_boosting_rounds": 287,
+  "rounds_evaluated": 300,
+  "best_validation_xgboost_aucpr": 0.31835081591256764,
+  "round_limit_reached": true,
+  "training_seconds": 66.33842383299998,
+  "total_seconds": 73.09128062499803,
+  "importance_note": "Split-gain importance is descriptive; it is not SHAP or causal evidence."
+}

@@ -1,0 +1,38 @@
+{
+  "generator": "AMLSim UPI Scenario Generator",
+  "random_seed": 42,
+  "raw_source": "data/amlsim_raw/20K_fanin200cycle200",
+  "total_baseline_transactions": 120558,
+  "baseline_laundering_count": 7885,
+  "baseline_laundering_rate": 0.06540420378572968,
+  "scenarios": {
+    "baseline": {
+      "file": "baseline.csv",
+      "rows": 120558,
+      "laundering": 7885,
+      "description": "Base synthetic AMLSim stream with cycles and fan-in laundering."
+    },
+    "challenge_1_disguised": {
+      "file": "challenge_1_disguised.csv",
+      "rows": 120558,
+      "laundering": 7885,
+      "amount_perturbation": "Split amounts to daily micro-transactions (\u20b9115-\u20b9485)",
+      "timing_perturbation": "Added +3 to +13 delay steps to evade velocity rules"
+    },
+    "challenge_2_lookalike": {
+      "file": "challenge_2_lookalike.csv",
+      "rows": 123058,
+      "benign_hub_transactions_added": 2500,
+      "merchant_hub": "dmart_retail_hub@okhdfcbank",
+      "payroll_hub": "infosys_payroll@icici",
+      "description": "Legitimate high-degree merchant (fan-in) and corporate payroll (fan-out) hubs."
+    },
+    "challenge_3_partial_history": {
+      "file": "challenge_3_partial_history.csv",
+      "rows": 120558,
+      "suppression_fraction": 0.5,
+      "description": "50% unobserved earlier transaction history edges to test sparse context / cold-start."
+    }
+  },
+  "policy": "Scenario names and generator metadata are NEVER model inputs. Transactions are scored strictly using past-only history before committing events into the graph."
+}

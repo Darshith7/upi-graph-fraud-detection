@@ -1,0 +1,33 @@
+{
+  "rank_budget": {
+    "requested_alert_fraction": 0.005,
+    "budget_rows": 4827,
+    "tie_break": "Descending score, then ascending transaction_id; no labels used.",
+    "boundary_score": 0.01245023962110281,
+    "rows_tied_at_boundary": 1,
+    "true_positives": 577,
+    "false_positives": 4250,
+    "false_negatives": 459,
+    "true_negatives": 960238,
+    "alerts": 4827,
+    "alert_fraction": 0.004999357861637826,
+    "precision": 0.11953594365030039,
+    "recall": 0.556949806949807,
+    "false_positives_per_1000_non_laundering": 4.406483025190568
+  },
+  "fixed_score_rule": {
+    "cutoff": 0.01245023962110281,
+    "comparator": ">=",
+    "selection": "Chosen from validation scores alone to avoid exceeding the preset validation alert budget; boundary ties may reduce the number of alerts.",
+    "true_positives": 577,
+    "false_positives": 4250,
+    "false_negatives": 459,
+    "true_negatives": 960238,
+    "alerts": 4827,
+    "alert_fraction": 0.004999357861637826,
+    "precision": 0.11953594365030039,
+    "recall": 0.556949806949807,
+    "false_positives_per_1000_non_laundering": 4.406483025190568
+  },
+  "selection_split": "validation"
+}

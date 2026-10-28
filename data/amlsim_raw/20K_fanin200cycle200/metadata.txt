@@ -1,0 +1,3 @@
+nodes: 20,000 (1803 fraud nodes)
+transactions: 120,558
+patterns: 200 cycles and 200 fan-in

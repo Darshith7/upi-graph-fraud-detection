@@ -1,0 +1,43 @@
+# Virtual environments
+.venv/
+.venv*/
+env/
+venv/
+ENV/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.building
+
+# OS & Editor files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+
+# Large raw datasets & databases (>100MB - download from IBM/Kaggle)
+data/raw/*.csv
+data/processed/transactions.sqlite
+data/features/*.npy
+data/temporal_graph/*.npy
+
+# External submodules / tools
+external/AMLSim/.git/
+external/AMLSim/janusgraph*/
+external/AMLSim/target/
+external/AMLSim/jars/*.jar
+external/AMLSim/sample/*.tgz
+
+# Local logs
+*.log

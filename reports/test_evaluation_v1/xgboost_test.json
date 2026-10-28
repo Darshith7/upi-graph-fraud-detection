@@ -1,0 +1,8 @@
+{
+  "model": "xgboost",
+  "numpy_version": "2.5.4",
+  "threads": 1,
+  "version": "3.4.1",
+  "saved_rounds": 397,
+  "other_model_framework_loaded": false
+}

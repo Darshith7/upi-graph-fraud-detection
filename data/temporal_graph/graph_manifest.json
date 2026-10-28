@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "source_csv_sha256": "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040",
+  "feature_schema_sha256": "f4e325aba1692bce173adc91c8b449f9458580be99655229cce7ba571d1d6944",
+  "account_count": 515088,
+  "transaction_count": 5078345,
+  "rows_by_split": {
+    "train": 3248921,
+    "validation": 965524,
+    "test": 862792,
+    "tail": 1108
+  },
+  "time_origin_in_source_timezone": "2022-09-01 00:00:00",
+  "time_units": "Integer seconds since the feature time origin; source timezone is unspecified.",
+  "account_mapping": "Same integer IDs as data/features/account_index.csv, based on (bank, account).",
+  "labels_loaded": false,
+  "cutoff_rule": "Every query returns only events with time < cutoff; equal-time events are excluded.",
+  "stored_periods": "All four periods are indexed for reuse. Never pass raw unfiltered adjacency to training; use TemporalGraphIndex with each scored transaction's cutoff.",
+  "directions": "outgoing neighbors are earlier recipients; incoming neighbors are earlier senders.",
+  "sampling_policy": "recent_neighbors returns recent prior transactions, newest first. Repeated counterparties are allowed. Self-transfers are excluded by default from sampled neighbors but included in historical transaction counts.",
+  "history_feature_order": [
+    "log1p_prior_out_count",
+    "log1p_prior_in_count",
+    "log1p_seconds_since_out",
+    "log1p_seconds_since_in",
+    "has_prior_out",
+    "has_prior_in"
+  ],
+  "status": "Prepared graph index only; no graph model has been trained.",
+  "first_validation_history_consistency_check": "passed"
+}

@@ -1,0 +1,79 @@
+{
+  "created_utc": "2026-10-20T08:01:21.780410+00:00",
+  "primary_model": "xgboost",
+  "comparison_model": "graphsage",
+  "selection_basis": "Earlier validation comparison; model roles fixed before test evaluation.",
+  "validation_average_precision": {
+    "xgboost": 0.3233967602211372,
+    "graphsage": 0.2565031458441174
+  },
+  "feature_schema_sha256": "f4e325aba1692bce173adc91c8b449f9458580be99655229cce7ba571d1d6944",
+  "source_csv_sha256": "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040",
+  "frozen_rules": {
+    "xgboost": {
+      "cutoff": 0.023813266307115555,
+      "comparator": ">="
+    },
+    "graphsage": {
+      "cutoff": 0.01245023962110281,
+      "comparator": ">="
+    }
+  },
+  "alert_fraction": 0.005,
+  "graphsage_best_epoch": 7,
+  "graphsage_fanout": 5,
+  "xgboost_saved_rounds": 397,
+  "worker_checks_and_versions": {
+    "xgboost": {
+      "model": "xgboost",
+      "numpy_version": "2.5.4",
+      "threads": 1,
+      "version": "3.4.1",
+      "saved_rounds": 397,
+      "other_model_framework_loaded": false,
+      "validation_end": 691140,
+      "check": "passed"
+    },
+    "graphsage": {
+      "model": "graphsage",
+      "numpy_version": "2.5.4",
+      "threads": 1,
+      "version": "2.14.1",
+      "pyg_version": "2.8.1",
+      "best_epoch": 7,
+      "other_model_framework_loaded": false,
+      "validation_end": 691140,
+      "check": "passed"
+    }
+  },
+  "execution": "sequential fresh processes; one CPU thread per worker",
+  "models": {
+    "xgboost": {
+      "folder": "/Users/saidarshithanubola/Desktop/Fraud Detection/models/xgboost_baseline_v2",
+      "files_sha256": {
+        "model.ubj": "cc52f886fedf2a1e4182edce9829a844f8cfa92058158a8613e8c9e6cd69d3ee",
+        "alert_policy.json": "7243060a6f40cdaed389308feef4e2893a3431c6926d032138373fd17fabd9be",
+        "training_run.json": "9b2da3b7391a56535abc87098f3da9e678e720d31ef934f4277cbe7a771c1d60"
+      }
+    },
+    "graphsage": {
+      "folder": "/Users/saidarshithanubola/Desktop/Fraud Detection/models/graphsage_v2",
+      "files_sha256": {
+        "model.pt": "84afb56fce369ca82275715a2ede363dc304e893bf572d508eb0f0937cf25bf7",
+        "alert_policy.json": "6bbc24d9638994779ceaca02a6071f81aa2fdfd4b74f72e833ebc8d858a3c5c8",
+        "training_config.json": "1faced0ea30735b1a6161dfd20460b54eeac520b9e23bd0c39cfbe44033b0c85",
+        "normalization.json": "52a439d9fd62ac93eeb0234c82c0bb9bbb2a768c25a40ea169833a51f87d53c6"
+      }
+    }
+  },
+  "notes": [
+    "Main chronological test only; no test-driven model or threshold tuning.",
+    "Earlier unlabeled test transactions enter history; current-time and future events are excluded.",
+    "Top-k uses the complete test period offline; the frozen threshold is evaluated separately.",
+    "The September 11-18 tail was separated after inspecting its unusual volume and label distribution. It is excluded here.",
+    "Synthetic transaction labels; not verified mule-account detection or real-bank performance.",
+    "Retrospective transaction scoring: both paid and received amounts are assumed observed.",
+    "Both models already use historical endpoint features; this is a model comparison, not an isolated graph-feature ablation.",
+    "One training seed per model; these results do not estimate variability across training seeds."
+  ]
+}

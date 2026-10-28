@@ -1,0 +1,48 @@
+{
+  "evaluation_split": "validation",
+  "rows": 965524,
+  "laundering_rows": 1036,
+  "positive_prevalence": 0.0010729924890525767,
+  "average_precision": 0.3186154738667017,
+  "pr_auc_trapezoidal": 0.31835002092913967,
+  "constant_score_average_precision": 0.0010729924890525767,
+  "ap_divided_by_prevalence": 296.94101041474255,
+  "rank_budget": {
+    "requested_alert_fraction": 0.005,
+    "budget_rows": 4827,
+    "tie_break": "Descending score, then ascending transaction_id; no labels used.",
+    "boundary_score": 0.02558848261833191,
+    "rows_tied_at_boundary": 1,
+    "true_positives": 607,
+    "false_positives": 4220,
+    "false_negatives": 429,
+    "true_negatives": 960268,
+    "alerts": 4827,
+    "alert_fraction": 0.004999357861637826,
+    "precision": 0.12575098404806298,
+    "recall": 0.5859073359073359,
+    "false_positives_per_1000_non_laundering": 4.375378439130399
+  },
+  "fixed_score_rule": {
+    "cutoff": 0.02558848261833191,
+    "comparator": ">=",
+    "selection": "Chosen from validation scores alone to avoid exceeding the preset validation alert budget; boundary ties may reduce the number of alerts.",
+    "true_positives": 607,
+    "false_positives": 4220,
+    "false_negatives": 429,
+    "true_negatives": 960268,
+    "alerts": 4827,
+    "alert_fraction": 0.004999357861637826,
+    "precision": 0.12575098404806298,
+    "recall": 0.5859073359073359,
+    "false_positives_per_1000_non_laundering": 4.375378439130399
+  },
+  "notes": [
+    "Development results: validation also selects the number of trees, so these are not final test results.",
+    "Average precision is sklearn's recall-weighted precision, not trapezoidal PR area.",
+    "XGBoost aucpr used during early stopping uses its own continuous PR interpolation.",
+    "Rank-budget evaluation selects top scores across this completed period; it is an offline ranking metric.",
+    "The fixed score rule can produce a different alert rate on later periods; it is not a production capacity guarantee.",
+    "Scores have not been probability-calibrated. No account-risk or mule classification is evaluated here."
+  ]
+}

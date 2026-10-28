@@ -1,0 +1,133 @@
+{
+  "dataset": "Feedzai Bank Account Fraud (BAF) Suite",
+  "task": "Account Opening Fraud Detection (Separate Tabular Task)",
+  "evaluated_at": "2026-10-28T13:37:45.470649+00:00",
+  "total_test_records": 18000,
+  "total_test_frauds": 213,
+  "base_test_fraud_prevalence": 0.0118,
+  "overall_roc_auc": 0.5258,
+  "overall_average_precision": 0.0139,
+  "alert_policy": "Top 5.0% Score Cutoff (threshold: 0.0281)",
+  "subgroups": {
+    "customer_age_groups": {
+      "Youth (18-24)": {
+        "sample_count": 1882,
+        "population_share": 0.1046,
+        "actual_frauds": 29,
+        "base_fraud_rate": 0.0154,
+        "total_alerts": 101,
+        "alert_rate": 0.0537,
+        "true_positives": 1,
+        "false_positives": 100,
+        "false_negatives": 28,
+        "true_negatives": 1753,
+        "false_positive_rate": 0.054,
+        "false_negative_rate": 0.9655,
+        "true_positive_rate": 0.0345
+      },
+      "Young Adult (25-39)": {
+        "sample_count": 6015,
+        "population_share": 0.3342,
+        "actual_frauds": 68,
+        "base_fraud_rate": 0.0113,
+        "total_alerts": 318,
+        "alert_rate": 0.0529,
+        "true_positives": 5,
+        "false_positives": 313,
+        "false_negatives": 63,
+        "true_negatives": 5634,
+        "false_positive_rate": 0.0526,
+        "false_negative_rate": 0.9265,
+        "true_positive_rate": 0.0735
+      },
+      "Middle Age (40-59)": {
+        "sample_count": 6483,
+        "population_share": 0.3602,
+        "actual_frauds": 85,
+        "base_fraud_rate": 0.0131,
+        "total_alerts": 320,
+        "alert_rate": 0.0494,
+        "true_positives": 5,
+        "false_positives": 315,
+        "false_negatives": 80,
+        "true_negatives": 6083,
+        "false_positive_rate": 0.0492,
+        "false_negative_rate": 0.9412,
+        "true_positive_rate": 0.0588
+      },
+      "Senior (60+)": {
+        "sample_count": 3620,
+        "population_share": 0.2011,
+        "actual_frauds": 31,
+        "base_fraud_rate": 0.0086,
+        "total_alerts": 161,
+        "alert_rate": 0.0445,
+        "true_positives": 3,
+        "false_positives": 158,
+        "false_negatives": 28,
+        "true_negatives": 3431,
+        "false_positive_rate": 0.044,
+        "false_negative_rate": 0.9032,
+        "true_positive_rate": 0.0968
+      }
+    },
+    "income_tiers": {
+      "Low Income": {
+        "sample_count": 8401,
+        "population_share": 0.4667,
+        "actual_frauds": 90,
+        "base_fraud_rate": 0.0107,
+        "total_alerts": 464,
+        "alert_rate": 0.0552,
+        "true_positives": 8,
+        "false_positives": 456,
+        "false_negatives": 82,
+        "true_negatives": 7855,
+        "false_positive_rate": 0.0549,
+        "false_negative_rate": 0.9111,
+        "true_positive_rate": 0.0889
+      },
+      "Medium Income": {
+        "sample_count": 9204,
+        "population_share": 0.5113,
+        "actual_frauds": 117,
+        "base_fraud_rate": 0.0127,
+        "total_alerts": 400,
+        "alert_rate": 0.0435,
+        "true_positives": 6,
+        "false_positives": 394,
+        "false_negatives": 111,
+        "true_negatives": 8693,
+        "false_positive_rate": 0.0434,
+        "false_negative_rate": 0.9487,
+        "true_positive_rate": 0.0513
+      },
+      "High Income": {
+        "sample_count": 395,
+        "population_share": 0.0219,
+        "actual_frauds": 6,
+        "base_fraud_rate": 0.0152,
+        "total_alerts": 36,
+        "alert_rate": 0.0911,
+        "true_positives": 0,
+        "false_positives": 36,
+        "false_negatives": 6,
+        "true_negatives": 353,
+        "false_positive_rate": 0.0925,
+        "false_negative_rate": 1.0,
+        "true_positive_rate": 0.0
+      }
+    }
+  },
+  "disparity_summary": {
+    "max_fpr_disparity_across_age": 0.01,
+    "max_tpr_disparity_across_age": 0.0623,
+    "disparate_impact_ratio_age": 0.8287,
+    "interpretation": "Youth (18-24) group exhibits slightly higher FPR (sparse history lookalike), while Seniors exhibit lower alert rates. Consistent with real-world fraud scoring behavior."
+  },
+  "limitations": [
+    "This BAF evaluation is a separate tabular task and its metrics are kept distinct from the IBM AML graph detection benchmark.",
+    "Subgroup differences reflect algorithmic disparate error rates on opening account applications, not graph transaction flows.",
+    "The detector must not be claimed as bias-free without ongoing localized fairness interventions and threshold calibrations."
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "source_file": "HI-Small_Trans.csv",
+  "source_size_bytes": 475664283,
+  "rows": 5078345,
+  "non_laundering_rows": 5073168,
+  "laundering_rows": 5177,
+  "laundering_percent_of_all_rows": 0.10194266045335636,
+  "invalid_or_missing_labels": 0,
+  "label_value_counts": {
+    "0": 5073168,
+    "1": 5177
+  },
+  "earliest_valid_timestamp": "2022-09-01 00:00:00",
+  "latest_valid_timestamp": "2022-09-18 16:18:00",
+  "invalid_or_missing_timestamps": 0,
+  "backward_steps_among_valid_timestamps": 2418736,
+  "valid_timestamps_in_nondecreasing_order": false,
+  "blank_cells_by_column": {
+    "Timestamp": 0,
+    "From Bank": 0,
+    "Account": 0,
+    "To Bank": 0,
+    "Account.1": 0,
+    "Amount Received": 0,
+    "Receiving Currency": 0,
+    "Amount Paid": 0,
+    "Payment Currency": 0,
+    "Payment Format": 0,
+    "Is Laundering": 0
+  },
+  "amount_checks": {
+    "Amount Received": {
+      "invalid_or_missing": 0,
+      "negative": 0
+    },
+    "Amount Paid": {
+      "invalid_or_missing": 0,
+      "negative": 0
+    }
+  },
+  "currency_values": {
+    "Receiving Currency": {
+      "US Dollar": 1879341,
+      "Bitcoin": 148151,
+      "Euro": 1172017,
+      "Australian Dollar": 138511,
+      "Yuan": 206551,
+      "Rupee": 192065,
+      "Mexican Peso": 111030,
+      "Yen": 156319,
+      "UK Pound": 181255,
+      "Ruble": 157361,
+      "Canadian Dollar": 141357,
+      "Swiss Franc": 237884,
+      "Brazil Real": 71544,
+      "Saudi Riyal": 89971,
+      "Shekel": 194988
+    },
+    "Payment Currency": {
+      "US Dollar": 1895172,
+      "Bitcoin": 146066,
+      "Euro": 1168297,
+      "Australian Dollar": 136769,
+      "Yuan": 213752,
+      "Rupee": 190202,
+      "Yen": 155209,
+      "Mexican Peso": 110159,
+      "UK Pound": 180738,
+      "Ruble": 155178,
+      "Canadian Dollar": 140042,
+      "Swiss Franc": 234860,
+      "Brazil Real": 70703,
+      "Saudi Riyal": 89014,
+      "Shekel": 192184
+    }
+  },
+  "notes": [
+    "Full-file audit only; no sampling, sorting, cleaning, or training performed.",
+    "Account and Account.1 identify the sender and receiver respectively.",
+    "Use bank ID together with account ID when constructing graph identities.",
+    "Is Laundering is a target and must not be included in model inputs.",
+    "No duplicate-transaction or unique-account count is computed in this audit.",
+    "Currency values are recorded as supplied; no conversion or normalization applied."
+  ]
+}

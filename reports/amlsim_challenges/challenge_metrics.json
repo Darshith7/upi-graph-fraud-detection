@@ -1,0 +1,570 @@
+{
+  "Baseline (Standard AMLSim)": {
+    "scenario": "Baseline (Standard AMLSim)",
+    "test_events": 41618,
+    "test_laundering": 3468,
+    "test_laundering_rate": 0.08332932865587006,
+    "lookalike_hub_events": 0,
+    "xgboost": {
+      "average_precision": 0.7984530196443669,
+      "roc_auc": 0.9233538542238265,
+      "rank_budget_alert_fraction": 0.01,
+      "alerts": 416,
+      "true_positives": 416,
+      "false_positives": 0,
+      "false_negatives": 3052,
+      "true_negatives": 38150,
+      "precision": 1.0,
+      "recall": 0.11995386389850057,
+      "lookalike_hub_false_positives": 0
+    },
+    "graphsage": {
+      "average_precision": 0.5579860740519972,
+      "roc_auc": 0.8788241302997184,
+      "rank_budget_alert_fraction": 0.01,
+      "alerts": 416,
+      "true_positives": 389,
+      "false_positives": 27,
+      "false_negatives": 3079,
+      "true_negatives": 38123,
+      "precision": 0.9350961538461539,
+      "recall": 0.1121683967704729,
+      "lookalike_hub_false_positives": 0
+    },
+    "sample_missed_fraud_cases": [
+      {
+        "transaction_id": 180007,
+        "sender_upi": "acc_18814@paytm",
+        "receiver_upi": "acc_06223@oksbi",
+        "amount": 527.45,
+        "step": 91,
+        "gnn_score": 0.09768931567668915,
+        "xgb_score": 0.08402734249830246,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179904,
+        "sender_upi": "acc_17800@paytm",
+        "receiver_upi": "acc_08676@okhdfcbank",
+        "amount": 14.03,
+        "step": 91,
+        "gnn_score": 0.23764973878860474,
+        "xgb_score": 0.9832060933113098,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179227,
+        "sender_upi": "acc_06411@icici",
+        "receiver_upi": "acc_19810@paytm",
+        "amount": 234.66,
+        "step": 91,
+        "gnn_score": 0.3395397663116455,
+        "xgb_score": 0.3053033649921417,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179931,
+        "sender_upi": "acc_17995@oksbi",
+        "receiver_upi": "acc_09872@okaxis",
+        "amount": 3.01,
+        "step": 91,
+        "gnn_score": 0.7910892963409424,
+        "xgb_score": 0.9863241314888,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179102,
+        "sender_upi": "acc_04227@icici",
+        "receiver_upi": "acc_08190@okhdfcbank",
+        "amount": 4.18,
+        "step": 91,
+        "gnn_score": 0.2465297281742096,
+        "xgb_score": 0.9833726286888123,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      }
+    ],
+    "sample_false_alarm_cases": [
+      {
+        "transaction_id": 197939,
+        "sender_upi": "acc_19998@okhdfcbank",
+        "receiver_upi": "acc_09993@icici",
+        "amount": 261.79,
+        "step": 107,
+        "gnn_score": 0.98487389087677,
+        "xgb_score": 0.7094687819480896,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 196901,
+        "sender_upi": "acc_19999@oksbi",
+        "receiver_upi": "acc_09978@okhdfcbank",
+        "amount": 350.41,
+        "step": 106,
+        "gnn_score": 0.9303699135780334,
+        "xgb_score": 0.7814376950263977,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 193689,
+        "sender_upi": "acc_19999@oksbi",
+        "receiver_upi": "acc_09968@okaxis",
+        "amount": 350.41,
+        "step": 103,
+        "gnn_score": 0.9172465801239014,
+        "xgb_score": 0.3860953152179718,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 211994,
+        "sender_upi": "acc_09997@oksbi",
+        "receiver_upi": "acc_09862@paytm",
+        "amount": 260.85,
+        "step": 125,
+        "gnn_score": 0.9142727851867676,
+        "xgb_score": 0.25475364923477173,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 187489,
+        "sender_upi": "acc_09474@okhdfcbank",
+        "receiver_upi": "acc_19983@icici",
+        "amount": 132.49,
+        "step": 98,
+        "gnn_score": 0.9138447642326355,
+        "xgb_score": 0.6177352666854858,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      }
+    ]
+  },
+  "Challenge 1 (Disguised Suspicious)": {
+    "scenario": "Challenge 1 (Disguised Suspicious)",
+    "test_events": 42210,
+    "test_laundering": 4060,
+    "test_laundering_rate": 0.09618573797678276,
+    "lookalike_hub_events": 0,
+    "xgboost": {
+      "average_precision": 0.5730461312036949,
+      "roc_auc": 0.8741161993427551,
+      "rank_budget_alert_fraction": 0.01,
+      "alerts": 422,
+      "true_positives": 378,
+      "false_positives": 44,
+      "false_negatives": 3682,
+      "true_negatives": 38106,
+      "precision": 0.8957345971563981,
+      "recall": 0.09310344827586207,
+      "lookalike_hub_false_positives": 0
+    },
+    "graphsage": {
+      "average_precision": 0.4088312855000053,
+      "roc_auc": 0.8020086933223147,
+      "rank_budget_alert_fraction": 0.01,
+      "alerts": 422,
+      "true_positives": 348,
+      "false_positives": 74,
+      "false_negatives": 3712,
+      "true_negatives": 38076,
+      "precision": 0.8246445497630331,
+      "recall": 0.08571428571428572,
+      "lookalike_hub_false_positives": 0
+    },
+    "sample_missed_fraud_cases": [
+      {
+        "transaction_id": 170117,
+        "sender_upi": "acc_05861@upi",
+        "receiver_upi": "acc_04637@upi",
+        "amount": 374.52,
+        "step": 91,
+        "gnn_score": 0.18194986879825592,
+        "xgb_score": 0.10451409220695496,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 172936,
+        "sender_upi": "acc_14087@upi",
+        "receiver_upi": "acc_09003@icici",
+        "amount": 214.4,
+        "step": 91,
+        "gnn_score": 0.5465971827507019,
+        "xgb_score": 0.6227395534515381,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 167418,
+        "sender_upi": "acc_19904@okaxis",
+        "receiver_upi": "acc_09225@icici",
+        "amount": 235.07,
+        "step": 91,
+        "gnn_score": 0.6447721719741821,
+        "xgb_score": 0.4297995865345001,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 170128,
+        "sender_upi": "acc_06063@icici",
+        "receiver_upi": "acc_17873@upi",
+        "amount": 209.81,
+        "step": 91,
+        "gnn_score": 0.6924468278884888,
+        "xgb_score": 0.14271068572998047,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 164050,
+        "sender_upi": "acc_04637@upi",
+        "receiver_upi": "acc_00670@paytm",
+        "amount": 307.69,
+        "step": 91,
+        "gnn_score": 0.6218074560165405,
+        "xgb_score": 0.4101663827896118,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      }
+    ],
+    "sample_false_alarm_cases": [
+      {
+        "transaction_id": 197939,
+        "sender_upi": "acc_19998@okhdfcbank",
+        "receiver_upi": "acc_09993@icici",
+        "amount": 261.79,
+        "step": 107,
+        "gnn_score": 0.9848352670669556,
+        "xgb_score": 0.7094687819480896,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 196901,
+        "sender_upi": "acc_19999@oksbi",
+        "receiver_upi": "acc_09978@okhdfcbank",
+        "amount": 350.41,
+        "step": 106,
+        "gnn_score": 0.9281245470046997,
+        "xgb_score": 0.7868082523345947,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 193689,
+        "sender_upi": "acc_19999@oksbi",
+        "receiver_upi": "acc_09968@okaxis",
+        "amount": 350.41,
+        "step": 103,
+        "gnn_score": 0.9171291589736938,
+        "xgb_score": 0.38916540145874023,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 211994,
+        "sender_upi": "acc_09997@oksbi",
+        "receiver_upi": "acc_09862@paytm",
+        "amount": 260.85,
+        "step": 125,
+        "gnn_score": 0.915971577167511,
+        "xgb_score": 0.22998066246509552,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 187489,
+        "sender_upi": "acc_09474@okhdfcbank",
+        "receiver_upi": "acc_19983@icici",
+        "amount": 132.49,
+        "step": 98,
+        "gnn_score": 0.914905846118927,
+        "xgb_score": 0.6117334365844727,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      }
+    ]
+  },
+  "Challenge 2 (Benign Lookalike Hubs)": {
+    "scenario": "Challenge 2 (Benign Lookalike Hubs)",
+    "test_events": 42453,
+    "test_laundering": 3468,
+    "test_laundering_rate": 0.08169033990530705,
+    "lookalike_hub_events": 835,
+    "xgboost": {
+      "average_precision": 0.7677801724797176,
+      "roc_auc": 0.914627783228962,
+      "rank_budget_alert_fraction": 0.01,
+      "alerts": 424,
+      "true_positives": 424,
+      "false_positives": 0,
+      "false_negatives": 3044,
+      "true_negatives": 38985,
+      "precision": 1.0,
+      "recall": 0.12226066897347174,
+      "lookalike_hub_false_positives": 0
+    },
+    "graphsage": {
+      "average_precision": 0.5570345063251949,
+      "roc_auc": 0.8793841130745729,
+      "rank_budget_alert_fraction": 0.01,
+      "alerts": 424,
+      "true_positives": 396,
+      "false_positives": 28,
+      "false_negatives": 3072,
+      "true_negatives": 38957,
+      "precision": 0.9339622641509434,
+      "recall": 0.11418685121107267,
+      "lookalike_hub_false_positives": 0
+    },
+    "sample_missed_fraud_cases": [
+      {
+        "transaction_id": 180007,
+        "sender_upi": "acc_18814@paytm",
+        "receiver_upi": "acc_06223@oksbi",
+        "amount": 527.45,
+        "step": 91,
+        "gnn_score": 0.09768931567668915,
+        "xgb_score": 0.08402734249830246,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179904,
+        "sender_upi": "acc_17800@paytm",
+        "receiver_upi": "acc_08676@okhdfcbank",
+        "amount": 14.03,
+        "step": 91,
+        "gnn_score": 0.23764973878860474,
+        "xgb_score": 0.9832060933113098,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179227,
+        "sender_upi": "acc_06411@icici",
+        "receiver_upi": "acc_19810@paytm",
+        "amount": 234.66,
+        "step": 91,
+        "gnn_score": 0.3395397663116455,
+        "xgb_score": 0.3053033649921417,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179931,
+        "sender_upi": "acc_17995@oksbi",
+        "receiver_upi": "acc_09872@okaxis",
+        "amount": 3.01,
+        "step": 91,
+        "gnn_score": 0.7910892963409424,
+        "xgb_score": 0.9863241314888,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179102,
+        "sender_upi": "acc_04227@icici",
+        "receiver_upi": "acc_08190@okhdfcbank",
+        "amount": 4.18,
+        "step": 91,
+        "gnn_score": 0.2465297281742096,
+        "xgb_score": 0.9833726286888123,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      }
+    ],
+    "sample_false_alarm_cases": [
+      {
+        "transaction_id": 197939,
+        "sender_upi": "acc_19998@okhdfcbank",
+        "receiver_upi": "acc_09993@icici",
+        "amount": 261.79,
+        "step": 107,
+        "gnn_score": 0.98487389087677,
+        "xgb_score": 0.7094687819480896,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 196901,
+        "sender_upi": "acc_19999@oksbi",
+        "receiver_upi": "acc_09978@okhdfcbank",
+        "amount": 350.41,
+        "step": 106,
+        "gnn_score": 0.9303699135780334,
+        "xgb_score": 0.7814376950263977,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 187489,
+        "sender_upi": "acc_09474@okhdfcbank",
+        "receiver_upi": "acc_19983@icici",
+        "amount": 132.49,
+        "step": 98,
+        "gnn_score": 0.918214738368988,
+        "xgb_score": 0.6177352666854858,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 193689,
+        "sender_upi": "acc_19999@oksbi",
+        "receiver_upi": "acc_09968@okaxis",
+        "amount": 350.41,
+        "step": 103,
+        "gnn_score": 0.9172465801239014,
+        "xgb_score": 0.3860953152179718,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 211994,
+        "sender_upi": "acc_09997@oksbi",
+        "receiver_upi": "acc_09862@paytm",
+        "amount": 260.85,
+        "step": 125,
+        "gnn_score": 0.9142727851867676,
+        "xgb_score": 0.25475364923477173,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      }
+    ]
+  },
+  "Challenge 3 (Partial History 50%)": {
+    "scenario": "Challenge 3 (Partial History 50%)",
+    "test_events": 41618,
+    "test_laundering": 3468,
+    "test_laundering_rate": 0.08332932865587006,
+    "lookalike_hub_events": 0,
+    "xgboost": {
+      "average_precision": 0.7772136526054443,
+      "roc_auc": 0.9073305911679297,
+      "rank_budget_alert_fraction": 0.01,
+      "alerts": 416,
+      "true_positives": 416,
+      "false_positives": 0,
+      "false_negatives": 3052,
+      "true_negatives": 38150,
+      "precision": 1.0,
+      "recall": 0.11995386389850057,
+      "lookalike_hub_false_positives": 0
+    },
+    "graphsage": {
+      "average_precision": 0.5465374073896141,
+      "roc_auc": 0.8749031738977295,
+      "rank_budget_alert_fraction": 0.01,
+      "alerts": 416,
+      "true_positives": 385,
+      "false_positives": 31,
+      "false_negatives": 3083,
+      "true_negatives": 38119,
+      "precision": 0.9254807692307693,
+      "recall": 0.11101499423298732,
+      "lookalike_hub_false_positives": 0
+    },
+    "sample_missed_fraud_cases": [
+      {
+        "transaction_id": 180007,
+        "sender_upi": "acc_18814@paytm",
+        "receiver_upi": "acc_06223@oksbi",
+        "amount": 527.45,
+        "step": 91,
+        "gnn_score": 0.09643884003162384,
+        "xgb_score": 0.14297616481781006,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179904,
+        "sender_upi": "acc_17800@paytm",
+        "receiver_upi": "acc_08676@okhdfcbank",
+        "amount": 14.03,
+        "step": 91,
+        "gnn_score": 0.18801625072956085,
+        "xgb_score": 0.9785079956054688,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179227,
+        "sender_upi": "acc_06411@icici",
+        "receiver_upi": "acc_19810@paytm",
+        "amount": 234.66,
+        "step": 91,
+        "gnn_score": 0.2905961573123932,
+        "xgb_score": 0.054460253566503525,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179931,
+        "sender_upi": "acc_17995@oksbi",
+        "receiver_upi": "acc_09872@okaxis",
+        "amount": 3.01,
+        "step": 91,
+        "gnn_score": 0.7733347415924072,
+        "xgb_score": 0.9851930141448975,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      },
+      {
+        "transaction_id": 179102,
+        "sender_upi": "acc_04227@icici",
+        "receiver_upi": "acc_08190@okhdfcbank",
+        "amount": 4.18,
+        "step": 91,
+        "gnn_score": 0.174142986536026,
+        "xgb_score": 0.9801331758499146,
+        "reason": "Missed due to disguised timing/amount or low localized degree before cutoff"
+      }
+    ],
+    "sample_false_alarm_cases": [
+      {
+        "transaction_id": 197939,
+        "sender_upi": "acc_19998@okhdfcbank",
+        "receiver_upi": "acc_09993@icici",
+        "amount": 261.79,
+        "step": 107,
+        "gnn_score": 0.9830760955810547,
+        "xgb_score": 0.6524521708488464,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 196901,
+        "sender_upi": "acc_19999@oksbi",
+        "receiver_upi": "acc_09978@okhdfcbank",
+        "amount": 350.41,
+        "step": 106,
+        "gnn_score": 0.9216436743736267,
+        "xgb_score": 0.6839189529418945,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 187489,
+        "sender_upi": "acc_09474@okhdfcbank",
+        "receiver_upi": "acc_19983@icici",
+        "amount": 132.49,
+        "step": 98,
+        "gnn_score": 0.9166751503944397,
+        "xgb_score": 0.36019036173820496,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 193689,
+        "sender_upi": "acc_19999@oksbi",
+        "receiver_upi": "acc_09968@okaxis",
+        "amount": 350.41,
+        "step": 103,
+        "gnn_score": 0.9051204323768616,
+        "xgb_score": 0.28866374492645264,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      },
+      {
+        "transaction_id": 211994,
+        "sender_upi": "acc_09997@oksbi",
+        "receiver_upi": "acc_09862@paytm",
+        "amount": 260.85,
+        "step": 125,
+        "gnn_score": 0.8997716307640076,
+        "xgb_score": 0.24626524746418,
+        "is_lookalike_hub": false,
+        "reason": "High fan-in or velocity lookalike triggering threshold"
+      }
+    ]
+  }
+}

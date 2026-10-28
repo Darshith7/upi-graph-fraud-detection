@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "source_file": "HI-Small_Trans.csv",
+  "source_sha256": "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040",
+  "source_size_bytes": 475664283,
+  "total_rows": 5078345,
+  "splits": {
+    "tail": {
+      "rows": 1108,
+      "laundering": 655,
+      "non_laundering": 453,
+      "first_timestamp": "2022-09-11 00:05:00",
+      "last_timestamp": "2022-09-18 16:18:00"
+    },
+    "test": {
+      "rows": 862792,
+      "laundering": 956,
+      "non_laundering": 861836,
+      "first_timestamp": "2022-09-09 00:00:00",
+      "last_timestamp": "2022-09-10 23:59:00"
+    },
+    "train": {
+      "rows": 3248921,
+      "laundering": 2530,
+      "non_laundering": 3246391,
+      "first_timestamp": "2022-09-01 00:00:00",
+      "last_timestamp": "2022-09-06 23:59:00"
+    },
+    "validation": {
+      "rows": 965524,
+      "laundering": 1036,
+      "non_laundering": 964488,
+      "first_timestamp": "2022-09-07 00:00:00",
+      "last_timestamp": "2022-09-08 23:59:00"
+    }
+  },
+  "cutoffs_in_source_time": {
+    "train": [
+      "2022-09-01 00:00:00",
+      "2022-09-07 00:00:00"
+    ],
+    "validation": [
+      "2022-09-07 00:00:00",
+      "2022-09-09 00:00:00"
+    ],
+    "test": [
+      "2022-09-09 00:00:00",
+      "2022-09-11 00:00:00"
+    ],
+    "tail": [
+      "2022-09-11 00:00:00",
+      "2022-09-19 00:00:00"
+    ]
+  },
+  "boundary_rule": "Start inclusive, end exclusive; timestamps have no supplied timezone.",
+  "selection_reason": "Main benchmark covers dense September 1-10 activity. September 11-18 has sparse activity and a sharply different label rate in the full-file audit, so it is retained as a separate tail evaluation.",
+  "scope": "Split creation only. No resampling, duplicate removal, feature fitting, or training.",
+  "currency_policy": "Original currency strings retained. No exchange conversion applied.",
+  "account_identity": "Use (bank, account) pairs; transaction IDs are not model features.",
+  "target": "label is derived from Is Laundering; never use it as a predictor.",
+  "ordered_read": "SELECT * FROM transactions ORDER BY timestamp, transaction_id",
+  "history_rule": "History features must use events strictly earlier than each scored timestamp. A transaction_id tie-break is only for reproducible output; it does not establish causal order among same-time events. Fit transforms on training rows only.",
+  "evaluation_rule": "Tune on validation only. Reserve test and tail labels for final evaluation. Report tail results separately; do not pool them into the main headline metrics."
+}

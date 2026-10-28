@@ -1,0 +1,55 @@
+{
+  "dataset": "IEEE-CIS Fraud Detection (Conventional Tabular Benchmark)",
+  "task": "E-Commerce Transaction Fraud Classification",
+  "evaluation_timestamp": "2026-10-28T13:37:53.544760+00:00",
+  "train_rows": 35000,
+  "test_rows": 15000,
+  "test_fraud_prevalence": 0.0182,
+  "roc_auc": 0.4997,
+  "average_precision": 0.0218,
+  "rank_budget": {
+    "requested_alert_fraction": 0.02,
+    "alerts": 300,
+    "true_positives": 12,
+    "false_positives": 288,
+    "false_negatives": 261,
+    "true_negatives": 14439,
+    "precision": 0.04,
+    "recall": 0.044
+  },
+  "top_feature_importance_gain": [
+    {
+      "feature": "ProductCD_C",
+      "gain": 7.73
+    },
+    {
+      "feature": "ProductCD_W",
+      "gain": 4.46
+    },
+    {
+      "feature": "ProductCD_R",
+      "gain": 4.36
+    },
+    {
+      "feature": "card4_mastercard",
+      "gain": 4.31
+    },
+    {
+      "feature": "card4_american express",
+      "gain": 4.08
+    },
+    {
+      "feature": "ProductCD_H",
+      "gain": 3.93
+    },
+    {
+      "feature": "D1",
+      "gain": 3.9
+    },
+    {
+      "feature": "card2",
+      "gain": 3.88
+    }
+  ],
+  "methodological_note": "IEEE-CIS is maintained strictly as an independent conventional tabular reference; its numerical values are not pooled or numerically conflated with the IBM AML graph benchmark."
+}
