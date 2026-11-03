@@ -16,7 +16,10 @@ import json
 import math
 from pathlib import Path
 import platform
-import resource
+try:
+    import resource
+except ImportError:
+    resource = None
 import time
 
 import numpy as np
@@ -42,8 +45,14 @@ def write_json(path, value):
 
 
 def peak_memory_mib():
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return peak / (1024 ** 2) if platform.system() == "Darwin" else peak / 1024
+    if resource is not None:
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return peak / (1024 ** 2) if platform.system() == "Darwin" else peak / 1024
+    try:
+        import psutil
+        return psutil.Process().memory_info().rss / (1024 ** 2)
+    except Exception:
+        return 0.0
 
 
 def fit_normalizer(X, names):

@@ -96,11 +96,17 @@ class BankAnalystCopilot:
     @staticmethod
     def generate_sar_summary(case_data: Dict[str, Any]) -> Dict[str, Any]:
         tx_id = case_data.get("transaction_id", "N/A")
-        sender = case_data.get("sender_upi", "unknown@upi")
-        receiver = case_data.get("receiver_upi", "unknown@upi")
-        amount = case_data.get("amount", 0.0)
-        risk_score = case_data.get("risk_score", 0.0)
-        risk_level = case_data.get("risk_level", "UNKNOWN")
+        sender = str(case_data.get("sender_upi", "unknown@upi"))
+        receiver = str(case_data.get("receiver_upi", "unknown@upi"))
+        try:
+            amount = float(case_data.get("amount", 0.0))
+        except (ValueError, TypeError):
+            amount = 0.0
+        try:
+            risk_score = float(case_data.get("risk_score", 0.0))
+        except (ValueError, TypeError):
+            risk_score = 0.0
+        risk_level = str(case_data.get("risk_level", "UNKNOWN"))
         cutoff = case_data.get("graph_cutoff_timestamp", "N/A")
         reasons = case_data.get("main_reasons", [])
         supporting_ids = case_data.get("supporting_transaction_ids", [])
@@ -141,9 +147,13 @@ class BankAnalystCopilot:
 
         if len(subgraph) > 0:
             for edge in subgraph:
+                try:
+                    edge_amt = float(edge.get("amount", 0.0))
+                except (ValueError, TypeError):
+                    edge_amt = 0.0
                 narrative_lines.append(
                     f"   • Tx #{edge.get('prior_transaction_id')}: {edge.get('source_upi')} -> {edge.get('target_upi')} "
-                    f"[INR {edge.get('amount', 0):,.2f}] (Role: {edge.get('pattern_role')}, GNN Weight: {edge.get('gnn_importance_weight')})"
+                    f"[INR {edge_amt:,.2f}] (Role: {edge.get('pattern_role')}, GNN Weight: {edge.get('gnn_importance_weight')})"
                 )
         else:
             narrative_lines.append("   • No prior multi-hop transactions found strictly prior to cutoff; flagged primarily via tabular velocity.")
@@ -192,7 +202,18 @@ class ConsumerSafetyCopilot:
         total_prior_events: int = 15,
         language: str = "en"
     ) -> Dict[str, Any]:
-        lang = language.lower() if language.lower() in CONSUMER_SAFETY_TEMPLATES else "en"
+        try:
+            recent_risk_score = float(recent_risk_score)
+        except (ValueError, TypeError):
+            recent_risk_score = 0.05
+        try:
+            total_prior_events = int(total_prior_events)
+        except (ValueError, TypeError):
+            total_prior_events = 0
+
+        lang = str(language).lower() if language else "en"
+        if lang not in CONSUMER_SAFETY_TEMPLATES:
+            lang = "en"
         tmpl = CONSUMER_SAFETY_TEMPLATES[lang]
 
         # Determine status

@@ -28,6 +28,7 @@ for _name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import hashlib
 import aiohttp
 from aiohttp import web
 import numpy as np
@@ -52,6 +53,8 @@ class RealtimeScoringEngine:
         self.tracker = TemporalGraphFeatureTracker()
         self.latencies_ms = deque(maxlen=10_000)
         self.recent_scored = deque(maxlen=100)
+        self.processed_tx_cache: Dict[int, Dict[str, Any]] = {}
+        self.last_seen_timestamp = 0
         self.total_scored = 0
         self.total_alerts = 0
 
@@ -62,7 +65,7 @@ class RealtimeScoringEngine:
             str(self.models_dir / "xgboost_amlsim.ubj"), FEATURE_NAMES
         )
 
-        # Load GraphSAGE model
+        # Load GraphSAGE model and graph topology
         gnn_ckpt = torch.load(self.models_dir / "graphsage_amlsim.pt", weights_only=False)
         self.gnn_model = AMLSimGraphSAGE(in_features=len(FEATURE_NAMES), hidden_dim=32, out_dim=1)
         self.gnn_model.load_state_dict(gnn_ckpt["state_dict"])
@@ -70,7 +73,14 @@ class RealtimeScoringEngine:
         self.node_x = gnn_ckpt["node_x"]
         self.edge_index = gnn_ckpt["edge_index"]
         self.node2idx = gnn_ckpt["node2idx"]
-        self.gnn_explainer = GNNExplainer(self.gnn_model, FEATURE_NAMES)
+        self.unknown_node_idx = gnn_ckpt.get("unknown_node_idx", len(self.node2idx))
+        self.gnn_explainer = GNNExplainer(self.gnn_model, FEATURE_NAMES, seed=42)
+
+        # Dynamic live temporal graph state for GraphSAGE (Bug P1-3 fix)
+        self.dynamic_node_x = self.node_x.clone()
+        self.dynamic_edge_src = self.edge_index[0].tolist()
+        self.dynamic_edge_dst = self.edge_index[1].tolist()
+        self.dynamic_edge_index = self.edge_index.clone()
 
         # Cache scenario streams
         self.scenarios = {
@@ -79,6 +89,17 @@ class RealtimeScoringEngine:
             "challenge_2_lookalike": "challenge_2_lookalike.csv",
             "challenge_3_partial_history": "challenge_3_partial_history.csv"
         }
+
+        # Build deterministic handle-to-node mapping from all scenario data (Bug P1-1 fix)
+        self.handle_to_id = {}
+        for sc_file in self.scenarios.values():
+            p = self.challenges_dir / sc_file
+            if p.is_file():
+                df_sc = pd.read_csv(p, usecols=["sourceNodeId", "targetNodeId", "sender_upi", "receiver_upi"])
+                for row in df_sc.itertuples(index=False):
+                    self.handle_to_id[str(row.sender_upi).strip().lower()] = int(row.sourceNodeId)
+                    self.handle_to_id[str(row.receiver_upi).strip().lower()] = int(row.targetNodeId)
+
         self.active_scenario_name = "baseline"
         self.stream_df = None
         self.stream_pointer = 0
@@ -94,28 +115,46 @@ class RealtimeScoringEngine:
         print(f"Loaded scenario '{scenario_name}': {len(self.stream_df):,} transactions.")
 
     def reset_state(self):
-        self.tracker = TemporalGraphFeatureTracker()
+        """Reset online tracker, dynamic graph state, and transaction caches (Bug P1-2 fix)."""
+        self.tracker.reset()
+        self.dynamic_node_x = self.node_x.clone()
+        self.dynamic_edge_src = self.edge_index[0].tolist()
+        self.dynamic_edge_dst = self.edge_index[1].tolist()
+        self.dynamic_edge_index = self.edge_index.clone()
         self.latencies_ms.clear()
         self.recent_scored.clear()
+        self.processed_tx_cache.clear()
+        self.last_seen_timestamp = 0
         self.total_scored = 0
         self.total_alerts = 0
         self.stream_pointer = 0
 
     def parse_node_id(self, upi_handle: str) -> int:
-        """Extract numeric account index from handle or create hash ID."""
-        try:
-            if "acc_" in upi_handle:
-                part = upi_handle.split("acc_")[1].split("@")[0]
-                return int(part)
-        except Exception:
-            pass
-        return abs(hash(upi_handle)) % 20_000
+        """Deterministically map UPI handle to node ID preserving VPA domain (Bug P1-1 fix)."""
+        clean = str(upi_handle).strip().lower()
+        if clean in self.handle_to_id:
+            return self.handle_to_id[clean]
+        # For arbitrary / new handles, generate deterministic cryptographic namespace hash in [100,000, 200,000)
+        h = hashlib.sha256(clean.encode("utf-8")).hexdigest()
+        oov_id = 100_000 + (int(h[:8], 16) % 100_000)
+        return oov_id
 
     def score_transaction(self, tx_data: Dict[str, Any]) -> Dict[str, Any]:
         """Score incoming transaction with past-only history, then update graph."""
         start_t = time.perf_counter()
 
-        tx_id = tx_data.get("transaction_id") if tx_data.get("transaction_id") is not None else int(time.time() * 1000) % 1_000_000
+        raw_id = tx_data.get("transaction_id")
+        try:
+            tx_id = int(raw_id) if raw_id is not None else int(time.time() * 1000) % 1_000_000
+        except (ValueError, TypeError):
+            tx_id = int(time.time() * 1000) % 1_000_000
+
+        # Check transaction idempotency (Bug P1-2 fix)
+        if tx_id in self.processed_tx_cache:
+            cached_res = self.processed_tx_cache[tx_id].copy()
+            cached_res["cached_replay"] = True
+            return cached_res
+
         sender_upi = str(tx_data.get("sender_upi") or "unknown@upi")
         receiver_upi = str(tx_data.get("receiver_upi") or "unknown@upi")
         try:
@@ -126,6 +165,14 @@ class RealtimeScoringEngine:
             timestamp = int(tx_data.get("timestamp", int(time.time())))
         except (ValueError, TypeError):
             timestamp = int(time.time())
+
+        # Check out-of-order timestamp safety
+        is_out_of_order = False
+        if self.last_seen_timestamp > 0 and timestamp < self.last_seen_timestamp:
+            is_out_of_order = True
+        else:
+            self.last_seen_timestamp = max(self.last_seen_timestamp, timestamp)
+
         graph_cutoff = timestamp
 
         s_node = self.parse_node_id(sender_upi)
@@ -141,22 +188,23 @@ class RealtimeScoringEngine:
         xgb_score = float(self.bst.predict(dmatrix)[0])
         shap_res = self.shap_explainer.explain(features, top_k=3)
 
-        # 3. GraphSAGE prediction
-        s_idx = self.node2idx.get(s_node, 0)
-        d_idx = self.node2idx.get(d_node, 0)
+        # 3. Live GraphSAGE prediction on current evolving graph (Bug P1-3 fix)
+        s_idx = self.node2idx.get(s_node, self.unknown_node_idx)
+        d_idx = self.node2idx.get(d_node, self.unknown_node_idx)
         tx_feat = torch.from_numpy(features).float().unsqueeze(0)
         with torch.no_grad():
             s_t = torch.tensor([s_idx], dtype=torch.long)
             d_t = torch.tensor([d_idx], dtype=torch.long)
             gnn_logit = self.gnn_model(
-                self.node_x, self.edge_index[:, :min(self.edge_index.size(1), 50_000)],
+                self.dynamic_node_x, self.dynamic_edge_index,
                 tx_feat, s_t, d_t
             )
             gnn_score = float(torch.sigmoid(gnn_logit).item())
 
-        # Blended risk score (GNN + XGBoost)
+        # Blended risk score (0.55 * XGBoost + 0.45 * GraphSAGE - evaluated in reports)
         risk_score = round(0.55 * xgb_score + 0.45 * gnn_score, 4)
 
+        # Production alert threshold policy (evaluated at 0.70)
         if risk_score >= 0.70:
             risk_level = "HIGH"
             alert = True
@@ -169,6 +217,8 @@ class RealtimeScoringEngine:
 
         # Build explainable reasons
         reasons = []
+        if is_out_of_order:
+            reasons.append("Out-of-order timestamp: transaction timestamp precedes latest processed event; scored with causal snapshot.")
         if insufficient_history:
             reasons.append("Sparse prior history: Counterparty has fewer than 3 historical events (cold-start / newly registered handle).")
         for f in shap_res["top_features"]:
@@ -176,8 +226,13 @@ class RealtimeScoringEngine:
         if self.tracker.in_counts[d_node] >= 5 and self.tracker.out_counts[d_node] >= 2:
             reasons.append(f"Network flow: Receiver has accumulated {self.tracker.in_counts[d_node]} inflows with pass-through forwarding.")
 
-        # 4. Commit transaction to graph AFTER scoring (no leakage)
+        # 4. Commit transaction to tracker and live graph strictly AFTER scoring (no leakage)
         self.tracker.update(s_node, d_node, timestamp)
+        self.dynamic_edge_src.append(s_idx)
+        self.dynamic_edge_dst.append(d_idx)
+        self.dynamic_edge_index = torch.tensor([self.dynamic_edge_src, self.dynamic_edge_dst], dtype=torch.long)
+        self.dynamic_node_x[s_idx] += torch.from_numpy(features) * 0.1
+        self.dynamic_node_x[d_idx] += torch.from_numpy(features) * 0.1
 
         latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
         self.latencies_ms.append(latency_ms)
@@ -202,6 +257,11 @@ class RealtimeScoringEngine:
             "top_shap_features": shap_res["top_features"],
             "latency_ms": latency_ms
         }
+
+        # Cache result for idempotency (capped at 10,000 items)
+        if len(self.processed_tx_cache) >= 10_000:
+            self.processed_tx_cache.pop(next(iter(self.processed_tx_cache)))
+        self.processed_tx_cache[tx_id] = result
         self.recent_scored.appendleft(result)
         return result
 
@@ -251,6 +311,8 @@ async def handle_stream_step(request: web.Request) -> web.Response:
     scored_batch = []
     for _ in range(count):
         if ENGINE.stream_pointer >= len(ENGINE.stream_df):
+            # Cleanly reset state when stream wraps to avoid future contamination (Bug P1-2 fix)
+            ENGINE.reset_state()
             ENGINE.stream_pointer = 0
         row = ENGINE.stream_df.iloc[ENGINE.stream_pointer]
         ENGINE.stream_pointer += 1
@@ -301,6 +363,8 @@ async def handle_stream_state(request: web.Request) -> web.Response:
         "total_scored": ENGINE.total_scored,
         "total_alerts": ENGINE.total_alerts,
         "alert_rate": round(ENGINE.total_alerts / max(1, ENGINE.total_scored), 4),
+        "deployed_model": "0.55 * XGBoost + 0.45 * GraphSAGE",
+        "deployed_alert_threshold": 0.70,
         "latency_stats": ENGINE.get_latency_stats(),
         "recent_transactions": list(ENGINE.recent_scored)[:20]
     })
@@ -312,45 +376,70 @@ async def handle_metrics_latency(request: web.Request) -> web.Response:
 
 async def handle_copilot_analyst(request: web.Request) -> web.Response:
     try:
-        data = await request.json()
+        data = await request.json() if request.can_read_body else {}
     except Exception:
-        data = {}
+        return web.json_response({"error": "Malformed JSON payload"}, status=400)
 
-    tx_id = data.get("transaction_id")
-    # If transaction_id provided, look up in recent or mock
-    case_data = None
-    if tx_id:
-        for item in ENGINE.recent_scored:
-            if item["transaction_id"] == tx_id:
-                case_data = item
-                break
-    if case_data is None:
-        case_data = data  # Use provided payload
+    try:
+        tx_id = data.get("transaction_id")
+        case_data = None
+        if tx_id:
+            for item in ENGINE.recent_scored:
+                if str(item.get("transaction_id")) == str(tx_id):
+                    case_data = item
+                    break
+        if case_data is None:
+            case_data = data
 
-    sar = BankAnalystCopilot.generate_sar_summary(case_data)
-    return web.json_response(sar)
+        sar = BankAnalystCopilot.generate_sar_summary(case_data)
+        return web.json_response(sar)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
 
 
 async def handle_copilot_consumer(request: web.Request) -> web.Response:
     try:
-        data = await request.json()
+        data = await request.json() if request.can_read_body else {}
     except Exception:
-        data = {}
+        return web.json_response({"error": "Malformed JSON payload"}, status=400)
 
-    upi_id = data.get("recipient_upi", "unknown@upi")
-    lang = data.get("language", "en")
+    try:
+        upi_id = str(data.get("recipient_upi") or "unknown@upi").strip()
+        lang = data.get("language", "en")
 
-    # Look up real stats for this node in the engine
-    node_id = ENGINE.parse_node_id(upi_id)
-    in_cnt = ENGINE.tracker.in_counts[node_id]
-    out_cnt = ENGINE.tracker.out_counts[node_id]
-    total_tx = in_cnt + out_cnt
+        # Look up real stats for this node in the engine
+        node_id = ENGINE.parse_node_id(upi_id)
+        in_cnt = ENGINE.tracker.in_counts[node_id]
+        out_cnt = ENGINE.tracker.out_counts[node_id]
+        total_tx = in_cnt + out_cnt
 
-    # Derive recent risk score
-    if total_tx == 0:
-        recent_score = 0.05
-    else:
-        recent_score = 0.85 if (in_cnt > 8 and out_cnt > 2) else 0.08
+        # Check recent scored transactions for this recipient (Bug P1-4 fix)
+        recent_scores = [item["risk_score"] for item in ENGINE.recent_scored if item.get("receiver_upi") == upi_id]
+        if len(recent_scores) > 0:
+            recent_score = float(max(recent_scores))
+        elif total_tx == 0:
+            recent_score = 0.05
+        elif in_cnt >= 8 and out_cnt == 0:
+            # Pure fan-in collection mule
+            recent_score = 0.85
+        elif in_cnt >= 5 and out_cnt >= 2:
+            # Rapid pass-through layering mule
+            recent_score = 0.80
+        elif in_cnt >= 8:
+            # Heavy fan-in
+            recent_score = 0.65
+        else:
+            recent_score = 0.08
+
+        advisory = ConsumerSafetyCopilot.check_recipient_safety(
+            recipient_upi=upi_id,
+            recent_risk_score=recent_score,
+            total_prior_events=total_tx,
+            language=lang
+        )
+        return web.json_response(advisory)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
 
     advisory = ConsumerSafetyCopilot.check_recipient_safety(
         recipient_upi=upi_id,

@@ -98,51 +98,61 @@ Both models were evaluated on the held-out test split under a fixed **0.5% alert
 ---
 
 ### B. AMLSim Synthetic UPI Stream & 3 Controlled Challenge Scenarios
-Evaluated over 120,558 transactions (Steps 1..90 Train, Steps 91..149 Test) using strict past-only feature calculation:
+Evaluated over 120,558 transactions (Steps 1..90 Train, Steps 91..149 Test) using strict past-only feature calculation and causal temporal snapshot training:
 
-| Scenario | Evaluated Tx | Fraud Tx | XGBoost AP | GraphSAGE AP | XGB Recall @ 1% | GraphSAGE Recall @ 1% | Lookalike Hub FPs (XGB / GNN) |
-|---|---|---|---|---|---|---|---|
-| **Baseline (Standard AMLSim)** | 41,618 | 3,468 | 0.7985 | 0.4006 | 12.00% | 6.86% | 0 / 0 |
-| **Challenge 1 (Disguised Suspicious)** | 42,210 | 4,060 | 0.5730 | 0.3211 | 9.31% | 5.67% | 0 / 0 |
-| **Challenge 2 (Benign Lookalike Hubs)** | 42,453 | 3,468 | 0.7678 | 0.3984 | 12.23% | 6.98% | 0 / 0 |
-| **Challenge 3 (Partial History 50%)** | 41,618 | 3,468 | 0.7772 | 0.3930 | 12.00% | 7.15% | 0 / 0 |
+#### 1. Rank Budget Evaluation (@ 1% Alert Capacity)
+| Scenario | Evaluated Tx | Fraud Tx | XGBoost AP | GraphSAGE AP | Deployed Blend AP | XGB Recall @ 1% | GraphSAGE Recall @ 1% | Blend Recall @ 1% | Lookalike Hub FPs (XGB / GNN / Blend) |
+|---|---|---|---|---|---|---|---|---|---|
+| **Baseline (Standard AMLSim)** | 41,618 | 3,468 | 0.7985 | 0.1956 | 0.7772 | 12.00% | 1.96% | 12.00% | 0 / 0 / 0 |
+| **Challenge 1 (Disguised Suspicious)** | 42,210 | 4,060 | 0.5730 | 0.1859 | 0.4502 | 9.31% | 1.82% | 7.73% | 0 / 0 / 0 |
+| **Challenge 2 (Benign Lookalike Hubs)** | 42,453 | 3,468 | 0.7678 | 0.1945 | 0.7639 | 12.23% | 2.02% | 12.23% | 0 / 0 / 0 |
+| **Challenge 3 (Partial History 50%)** | 41,618 | 3,468 | 0.7733 | 0.1844 | 0.7493 | 12.00% | 2.05% | 12.00% | 0 / 0 / 0 |
 
-#### Insights on the Challenge Cases:
-1. **Challenge 1 (Disguised Suspicious)**: Laundering amounts were split into micro-ticket sizes (₹115-₹485) and delayed by +3 to +13 steps. Both models experienced performance degradation, revealing that detection heuristics reliant purely on velocity are vulnerable to strategic obfuscation.
-2. **Challenge 2 (Benign Lookalike Hubs)**: 2,500 legitimate transactions were injected across retail QR merchant hubs (high fan-in) and corporate payroll hubs (high fan-out). Both models achieved **zero false positive alerts** on these legitimate hubs by evaluating reciprocal neighbor relationships.
-3. **Challenge 3 (Partial / Missing History)**: Suppressing 50% of earlier edges demonstrated the cold-start challenge. The system reliably raised the `insufficient_history` flag, preventing unwarranted reassurance.
+#### 2. Production Deployed Threshold Policy (`risk_score >= 0.70`)
+| Scenario | Evaluated Tx | Alert Cutoff | Production Alerts | Alert Rate | Precision | Recall | False Positives | Lookalike Hub FPs |
+|---|---|---|---|---|---|---|---|---|
+| **Baseline (Standard AMLSim)** | 41,618 | >= 0.70 | 1,651 | 3.97% | **99.64%** | **47.43%** | 6 | 0 |
+| **Challenge 1 (Disguised Suspicious)** | 42,210 | >= 0.70 | 26 | 0.06% | **76.92%** | **0.49%** | 6 | 0 |
+| **Challenge 2 (Benign Lookalike Hubs)** | 42,453 | >= 0.70 | 1,651 | 3.89% | **99.64%** | **47.43%** | 6 | 0 |
+| **Challenge 3 (Partial History 50%)** | 41,618 | >= 0.70 | 1,335 | 3.21% | **99.85%** | **38.44%** | 2 | 0 |
+
+#### Empirical Analysis of Challenge Scenarios:
+1. **Challenge 1 (Disguised Suspicious)**: Laundering amounts were split into micro-ticket sizes (₹115-₹485) and delayed by +3 to +13 steps. Performance degrades across all tabular and graph models (AP drops from 0.7985 to 0.5730 for XGBoost and 0.7772 to 0.4502 for Blend), demonstrating that strategic evasion through latency and ticket dispersion degrades simple velocity heuristics.
+2. **Challenge 2 (Benign Lookalike Hubs)**: 2,500 legitimate transactions were injected across retail QR merchant hubs (high fan-in) and corporate payroll hubs (high fan-out). All models achieved **0 false positive alerts** on these legitimate hubs by evaluating reciprocal neighbor relationships and counterparty diversity.
+3. **Challenge 3 (Partial / Missing History)**: Suppressing 50% of earlier edges simulated cold-start cross-bank transfers. Production recall decreased from 47.43% to 38.44%. The explicit `insufficient_history` flag reliably warned operators on newly registered counterparties.
 
 ---
 
-### C. Bank Account Fraud (BAF) Demographic Fairness Audit
-Evaluated on 18,000 test applications across demographic age brackets and income tiers:
+### C. Bank Account Fraud (BAF) Demographic Fairness Audit (Synthetic Protocol Demonstration)
+Evaluated on 12,000 holdout test applications across demographic age brackets and income tiers using validation-selected score threshold (threshold = 0.0218):
 
 | Subgroup | Sample Count | Share | Base Fraud Rate | Alert Rate | False Positive Rate (FPR) | True Positive Rate (TPR) |
 |---|---|---|---|---|---|---|
-| **Youth (18-24)** | 1,882 | 10.5% | 1.54% | 5.37% | **5.40%** | 3.45% |
-| **Young Adult (25-39)** | 6,015 | 33.4% | 1.13% | 5.29% | **5.26%** | 7.35% |
-| **Middle Age (40-59)** | 6,483 | 36.0% | 1.31% | 4.94% | **4.92%** | 5.88% |
-| **Senior (60+)** | 3,620 | 20.1% | 0.86% | 4.45% | **4.40%** | 9.68% |
+| **Youth (18-24)** | 1,242 | 10.3% | 2.01% | 12.56% | **11.75%** | 52.00% |
+| **Young Adult (25-39)** | 3,994 | 33.3% | 0.55% | 4.13% | **3.88%** | 50.00% |
+| **Middle Age (40-59)** | 4,320 | 36.0% | 0.63% | 3.98% | **3.66%** | 55.56% |
+| **Senior (60+)** | 2,444 | 20.4% | 0.49% | 3.60% | **3.29%** | 66.67% |
 
-- **Fairness Finding**: Applicants in the 18-24 bracket exhibit a 1.00 percentage point higher False Positive Rate (5.40% vs 4.40% for seniors) due to shorter residential stability and credit history.
-- **Methodological Stance**: As required by the proposal, these results are reported as experimental findings without claiming the system is bias-free.
+- **Fairness Finding**: Applicants in the 18-24 bracket exhibit an elevated False Positive Rate (11.75% vs 3.29% for seniors) due to shorter residential stability, thinner credit files, and higher mobile-first session velocity.
+- **Methodological Stance**: As required by the proposal, these results are reported as empirical observations on the synthetic BAF protocol testbed without claiming the model is bias-free.
 
 ---
 
-### D. IEEE-CIS Conventional Tabular Fraud Benchmark
-- **ROC-AUC**: **0.9238**
-- **Average Precision (PR-AUC)**: **0.4682**
-- **Precision @ 2% Alert Budget**: **35.33%**
-- **Top Predictive Features**: `card1`, `TransactionAmt`, `C13`, `addr1`, `dist1`.
+### D. IEEE-CIS Conventional Tabular Fraud Benchmark (Synthetic Protocol Demonstration)
+- **ROC-AUC**: **0.9213**
+- **Average Precision (PR-AUC)**: **0.4003**
+- **Precision @ 2% Alert Budget**: **49.77%** (Recall: **27.20%**)
+- **Validation-Selected Alert Cutoff**: score >= **0.3407**
+- **Top Predictive Features**: `ProductCD_C`, `card_credit`, `C1`, `TransactionAmt`, `C13`, `dist1`, `D1`.
 
 ---
 
 ### E. Real-Time Scoring Latency Benchmark (1,000 Transactions Tested)
-- **Median Latency (p50)**: **3.36 ms**
-- **95th Percentile Latency (p95)**: **4.10 ms**
-- **99th Percentile Latency (p99)**: **4.41 ms**
-- **Maximum Latency**: **95.75 ms**
-- **Throughput**: **280.6 transactions / second**
+- **Median Latency (p50)**: **18.98 ms**
+- **95th Percentile Latency (p95)**: **20.16 ms**
+- **99th Percentile Latency (p99)**: **23.48 ms**
+- **Maximum Latency**: **144.28 ms**
+- **Throughput**: **51.3 transactions / second**
 - **Sub-200ms Compliance**: **100.0%** (Operational Target: Met)
 
 ---

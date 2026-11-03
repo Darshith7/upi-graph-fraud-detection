@@ -1,7 +1,7 @@
 [
   {
     "transaction_id": 179904,
-    "prediction_time": "2026-10-28T13:37:36.950238+00:00",
+    "prediction_time": "2026-11-03T09:25:52.049480+00:00",
     "graph_cutoff_timestamp": 1725804211,
     "sender_upi": "acc_17800@paytm",
     "receiver_upi": "acc_08676@okhdfcbank",
@@ -53,53 +53,53 @@
     },
     "gnn_influential_subgraph": [
       {
+        "prior_transaction_id": 168494,
+        "source_upi": "acc_18273@icici",
+        "target_upi": "acc_08676@okhdfcbank",
+        "amount": 195.3,
+        "timestamp_seconds": 1725734360,
+        "pattern_role": "Rapid Inflow to Mule",
+        "gnn_importance_weight": 0.3408
+      },
+      {
+        "prior_transaction_id": 159945,
+        "source_upi": "acc_17313@icici",
+        "target_upi": "acc_08676@okhdfcbank",
+        "amount": 170.83,
+        "timestamp_seconds": 1725682942,
+        "pattern_role": "Rapid Inflow to Mule",
+        "gnn_importance_weight": 0.3405
+      },
+      {
+        "prior_transaction_id": 158896,
+        "source_upi": "acc_19353@icici",
+        "target_upi": "acc_17800@paytm",
+        "amount": 169.33,
+        "timestamp_seconds": 1725674869,
+        "pattern_role": "Layering Outflow",
+        "gnn_importance_weight": 0.3374
+      },
+      {
         "prior_transaction_id": 177577,
         "source_upi": "acc_17313@icici",
         "target_upi": "acc_17800@paytm",
         "amount": 170.83,
         "timestamp_seconds": 1725796766,
         "pattern_role": "Layering Outflow",
-        "gnn_importance_weight": 0.144
-      },
-      {
-        "prior_transaction_id": 171490,
-        "source_upi": "acc_08676@okhdfcbank",
-        "target_upi": "acc_02426@okaxis",
-        "amount": 256.7,
-        "timestamp_seconds": 1725758016,
-        "pattern_role": "Layering Outflow",
-        "gnn_importance_weight": 0.1435
-      },
-      {
-        "prior_transaction_id": 154566,
-        "source_upi": "acc_08676@okhdfcbank",
-        "target_upi": "acc_03142@paytm",
-        "amount": 256.7,
-        "timestamp_seconds": 1725658973,
-        "pattern_role": "Layering Outflow",
-        "gnn_importance_weight": 0.1349
-      },
-      {
-        "prior_transaction_id": 166728,
-        "source_upi": "acc_08676@okhdfcbank",
-        "target_upi": "acc_14135@upi",
-        "amount": 256.7,
-        "timestamp_seconds": 1725728291,
-        "pattern_role": "Layering Outflow",
-        "gnn_importance_weight": 0.1285
+        "gnn_importance_weight": 0.337
       }
     ],
     "supporting_transaction_ids": [
-      177577,
-      171490,
-      154566,
-      166728
+      168494,
+      159945,
+      158896,
+      177577
     ],
     "disclaimer": "AI model explanation generated for investigative assistance. Does not constitute legal proof of financial misconduct."
   },
   {
     "transaction_id": 179931,
-    "prediction_time": "2026-10-28T13:37:36.959055+00:00",
+    "prediction_time": "2026-11-03T09:25:52.180318+00:00",
     "graph_cutoff_timestamp": 1725804533,
     "sender_upi": "acc_17995@oksbi",
     "receiver_upi": "acc_09872@okaxis",
@@ -151,13 +151,31 @@
     },
     "gnn_influential_subgraph": [
       {
-        "prior_transaction_id": 144452,
-        "source_upi": "acc_06660@okhdfcbank",
+        "prior_transaction_id": 161831,
+        "source_upi": "acc_07548@okhdfcbank",
+        "target_upi": "acc_17995@oksbi",
+        "amount": 129.96,
+        "timestamp_seconds": 1725702070,
+        "pattern_role": "Layering Outflow",
+        "gnn_importance_weight": 0.3393
+      },
+      {
+        "prior_transaction_id": 151703,
+        "source_upi": "acc_02953@oksbi",
+        "target_upi": "acc_17995@oksbi",
+        "amount": 581.71,
+        "timestamp_seconds": 1725640477,
+        "pattern_role": "Layering Outflow",
+        "gnn_importance_weight": 0.3383
+      },
+      {
+        "prior_transaction_id": 164352,
+        "source_upi": "acc_08966@okaxis",
         "target_upi": "acc_09872@okaxis",
-        "amount": 296.36,
-        "timestamp_seconds": 1725595585,
+        "amount": 468.36,
+        "timestamp_seconds": 1725713322,
         "pattern_role": "Rapid Inflow to Mule",
-        "gnn_importance_weight": 0.9126
+        "gnn_importance_weight": 0.337
       },
       {
         "prior_transaction_id": 157244,
@@ -166,38 +184,20 @@
         "amount": 292.17,
         "timestamp_seconds": 1725667528,
         "pattern_role": "Layering Outflow",
-        "gnn_importance_weight": 0.9072
-      },
-      {
-        "prior_transaction_id": 177639,
-        "source_upi": "acc_17995@oksbi",
-        "target_upi": "acc_15846@okhdfcbank",
-        "amount": 208.57,
-        "timestamp_seconds": 1725792076,
-        "pattern_role": "Layering Outflow",
-        "gnn_importance_weight": 0.9068
-      },
-      {
-        "prior_transaction_id": 161831,
-        "source_upi": "acc_07548@okhdfcbank",
-        "target_upi": "acc_17995@oksbi",
-        "amount": 129.96,
-        "timestamp_seconds": 1725702070,
-        "pattern_role": "Layering Outflow",
-        "gnn_importance_weight": 0.9043
+        "gnn_importance_weight": 0.3369
       }
     ],
     "supporting_transaction_ids": [
-      144452,
-      157244,
-      177639,
-      161831
+      161831,
+      151703,
+      164352,
+      157244
     ],
     "disclaimer": "AI model explanation generated for investigative assistance. Does not constitute legal proof of financial misconduct."
   },
   {
     "transaction_id": 100984,
-    "prediction_time": "2026-10-28T13:37:36.960205+00:00",
+    "prediction_time": "2026-11-03T09:25:52.182565+00:00",
     "graph_cutoff_timestamp": 1725239427,
     "sender_upi": "acc_03144@okhdfcbank",
     "receiver_upi": "acc_19184@okaxis",

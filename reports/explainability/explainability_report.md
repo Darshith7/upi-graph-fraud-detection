@@ -25,13 +25,10 @@
 #### GNNExplainer Influential Subgraph Edges:
 | Prior Tx ID | Source | Target | Amount | Pattern Role | GNN Importance |
 |---|---|---|---|---|---|
-| #177577 | `acc_17313@icici` | `acc_17800@paytm` | ₹170.83 | Layering Outflow | 0.144 |
-| #171490 | `acc_08676@okhdfcbank` | `acc_02426@okaxis` | ₹256.70 | Layering Outflow | 0.1435 |
-| #154566 | `acc_08676@okhdfcbank` | `acc_03142@paytm` | ₹256.70 | Layering Outflow | 0.1349 |
-| #166728 | `acc_08676@okhdfcbank` | `acc_14135@upi` | ₹256.70 | Layering Outflow | 0.1285 |
-
-**Supporting Transaction IDs**: `177577, 171490, 154566, 166728`
----
+| #168494 | `acc_18273@icici` | `acc_08676@okhdfcbank` | ₹195.30 | Rapid Inflow to Mule | 0.3408 |
+| #159945 | `acc_17313@icici` | `acc_08676@okhdfcbank` | ₹170.83 | Rapid Inflow to Mule | 0.3405 |
+| #158896 | `acc_19353@icici` | `acc_17800@paytm` | ₹169.33 | Layering Outflow | 0.3374 |
+| #177577 | `acc_17313@icici` | `acc_17800@paytm` | ₹170.83 | Layering Outflow | 0.337 |
 
 ### Case 2: Transaction #179931 (HIGH Risk - Score: 0.9863)
 - **Transfer**: `acc_17995@oksbi` ➔ `acc_09872@okaxis`
@@ -51,13 +48,10 @@
 #### GNNExplainer Influential Subgraph Edges:
 | Prior Tx ID | Source | Target | Amount | Pattern Role | GNN Importance |
 |---|---|---|---|---|---|
-| #144452 | `acc_06660@okhdfcbank` | `acc_09872@okaxis` | ₹296.36 | Rapid Inflow to Mule | 0.9126 |
-| #157244 | `acc_12589@oksbi` | `acc_17995@oksbi` | ₹292.17 | Layering Outflow | 0.9072 |
-| #177639 | `acc_17995@oksbi` | `acc_15846@okhdfcbank` | ₹208.57 | Layering Outflow | 0.9068 |
-| #161831 | `acc_07548@okhdfcbank` | `acc_17995@oksbi` | ₹129.96 | Layering Outflow | 0.9043 |
-
-**Supporting Transaction IDs**: `144452, 157244, 177639, 161831`
----
+| #161831 | `acc_07548@okhdfcbank` | `acc_17995@oksbi` | ₹129.96 | Layering Outflow | 0.3393 |
+| #151703 | `acc_02953@oksbi` | `acc_17995@oksbi` | ₹581.71 | Layering Outflow | 0.3383 |
+| #164352 | `acc_08966@okaxis` | `acc_09872@okaxis` | ₹468.36 | Rapid Inflow to Mule | 0.337 |
+| #157244 | `acc_12589@oksbi` | `acc_17995@oksbi` | ₹292.17 | Layering Outflow | 0.3369 |
 
 ### Case 3: Transaction #100984 (LOW Risk - Score: 0.0451)
 - **Transfer**: `acc_03144@okhdfcbank` ➔ `acc_19184@okaxis`
@@ -77,6 +71,3 @@
 #### GNNExplainer Influential Subgraph Edges:
 | Prior Tx ID | Source | Target | Amount | Pattern Role | GNN Importance |
 |---|---|---|---|---|---|
-
-**Supporting Transaction IDs**: ``
----

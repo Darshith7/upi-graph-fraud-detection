@@ -1,7 +1,7 @@
 """Explainability module for AI-Based Graph Fraud Detection System.
 
 Implements:
-1. GNNExplainer: Learns edge-importance masks over the directional 1-hop computational graph
+1. GNNExplainer: Learns edge-importance masks over the directional computational graph
    to identify which historical transactions contributed most to the GNN prediction.
 2. TreeSHAP Explainer: Uses exact TreeSHAP attributions for the XGBoost baseline.
 3. Traceable Case Reports: Packages prediction time, graph cutoff timestamp, supporting transaction IDs,
@@ -80,54 +80,88 @@ class TreeSHAPExplainer:
 class GNNExplainer:
     """GNNExplainer for directional temporal GraphSAGE.
 
-    Learns a continuous mask M over local historical edges such that masking irrelevant
-    edges retains the model's confidence in the fraud classification.
+    Learns an edge-importance mask over local candidate historical edges such that
+    masking irrelevant edges preserves the model's confidence in the fraud classification,
+    optimizing an edge-mask objective directly on the model's message-passing layers.
     """
 
-    def __init__(self, gnn_model: nn.Module, feature_names: List[str], epochs: int = 40, lr: float = 0.05):
+    def __init__(self, gnn_model: nn.Module, feature_names: List[str], epochs: int = 40, lr: float = 0.05, seed: int = 42):
         self.model = gnn_model
         self.feature_names = feature_names
         self.epochs = epochs
         self.lr = lr
+        self.seed = seed
 
     def explain(self, node_x: torch.Tensor, edge_index: torch.Tensor,
                 tx_feat: torch.Tensor, s_idx: int, d_idx: int,
                 local_edge_info: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:
-        """Identify top influential historical edges for the transaction prediction."""
+        """Identify top influential historical edges by optimizing an edge mask directly on the GNN model."""
         if len(local_edge_info) == 0:
             return []
 
+        torch.manual_seed(self.seed)
         num_edges = len(local_edge_info)
-        # Initialize edge mask parameter
-        mask_param = nn.Parameter(torch.randn(num_edges) * 0.1)
-        optimizer = torch.optim.Adam([mask_param], lr=self.lr)
+
+        # Build candidate edge index corresponding to local_edge_info
+        local_src = [e["src_idx"] for e in local_edge_info]
+        local_dst = [e["dst_idx"] for e in local_edge_info]
+        sub_edge_index = torch.tensor([local_src, local_dst], dtype=torch.long)
 
         self.model.eval()
+        s_t = torch.tensor([s_idx], dtype=torch.long)
+        d_t = torch.tensor([d_idx], dtype=torch.long)
+
+        # Compute full unmasked model prediction
         with torch.no_grad():
-            s_t = torch.tensor([s_idx], dtype=torch.long)
-            d_t = torch.tensor([d_idx], dtype=torch.long)
-            orig_logit = self.model(node_x, edge_index[:, :min(edge_index.size(1), 50_000)], tx_feat, s_t, d_t)
-            target_sign = 1.0 if orig_logit.item() > 0 else -1.0
+            for conv in (self.model.conv1, self.model.conv2):
+                conv.explain = False
+                conv._edge_mask = None
+            orig_logit = self.model(node_x, sub_edge_index, tx_feat, s_t, d_t)
+            orig_prob = torch.sigmoid(orig_logit).item()
+
+        # Learnable mask over the candidate edges, initialized warm
+        mask_param = nn.Parameter(torch.ones(num_edges, dtype=torch.float32) * 1.5)
+        optimizer = torch.optim.Adam([mask_param], lr=self.lr)
+
+        target = 1.0 if orig_prob > 0.5 else 0.0
+
+        for conv in (self.model.conv1, self.model.conv2):
+            conv.explain = True
 
         for _ in range(self.epochs):
             optimizer.zero_grad()
             mask = torch.sigmoid(mask_param)
-            # Loss = preserve prediction target + sparsity penalty + entropy regularization
+            self.model.conv1._edge_mask = mask
+            self.model.conv2._edge_mask = mask
+
+            out_logit = self.model(node_x, sub_edge_index, tx_feat, s_t, d_t)
+            pred_prob = torch.sigmoid(out_logit)
+
+            # Optimization objective: preserve model confidence while encouraging sparsity
+            if target == 1.0:
+                pred_loss = -torch.log(pred_prob + 1e-6)
+            else:
+                pred_loss = -torch.log(1.0 - pred_prob + 1e-6)
+
             sparsity_loss = torch.mean(mask)
-            entropy_loss = -torch.mean(mask * torch.log(mask + 1e-8) + (1 - mask) * torch.log(1 - mask + 1e-8))
-            loss = -target_sign * mask.sum() * 0.01 + 0.1 * sparsity_loss + 0.05 * entropy_loss
+            entropy_loss = -torch.mean(mask * torch.log(mask + 1e-8) + (1.0 - mask) * torch.log(1.0 - mask + 1e-8))
+            loss = pred_loss + 0.05 * sparsity_loss + 0.01 * entropy_loss
             loss.backward()
             optimizer.step()
 
-        # Extract top edge weights
-        with torch.no_grad():
-            weights = torch.sigmoid(mask_param).numpy()
+        # Reset explain hooks
+        for conv in (self.model.conv1, self.model.conv2):
+            conv.explain = False
+            conv._edge_mask = None
 
-        sorted_indices = np.argsort(weights)[::-1]
+        with torch.no_grad():
+            final_weights = torch.sigmoid(mask_param).numpy()
+
+        sorted_indices = np.argsort(final_weights)[::-1]
         top_influential_edges = []
         for idx in sorted_indices[:top_k]:
-            edge_meta = local_edge_info[idx].copy()
-            edge_meta["gnn_importance_weight"] = round(float(weights[idx]), 4)
+            edge_meta = {k: v for k, v in local_edge_info[idx].items() if k not in ("src_idx", "dst_idx")}
+            edge_meta["gnn_importance_weight"] = round(float(final_weights[idx]), 4)
             top_influential_edges.append(edge_meta)
 
         return top_influential_edges
@@ -146,6 +180,7 @@ def generate_explanation_package(
     node_x: torch.Tensor,
     edge_index: torch.Tensor,
     node2idx: Dict[int, int],
+    unknown_node_idx: int,
     s_node_id: int,
     d_node_id: int,
     prior_tx_history: List[Dict[str, Any]]
@@ -155,22 +190,26 @@ def generate_explanation_package(
     shap_res = xgb_explainer.explain(features, top_k=5)
 
     # 2. GNN Explanation
-    s_idx = node2idx.get(s_node_id, 0)
-    d_idx = node2idx.get(d_node_id, 0)
+    s_idx = node2idx.get(s_node_id, unknown_node_idx)
+    d_idx = node2idx.get(d_node_id, unknown_node_idx)
     tx_feat_tensor = torch.from_numpy(features).float().unsqueeze(0)
 
     # Construct local edge list connecting sender or receiver
     local_edges = []
     for ptx in prior_tx_history:
-        if ptx["sourceNodeId"] in (s_node_id, d_node_id) or ptx["targetNodeId"] in (s_node_id, d_node_id):
-            role = "Rapid Inflow to Mule" if ptx["targetNodeId"] == d_node_id else "Layering Outflow"
+        ptx_src = int(ptx["sourceNodeId"])
+        ptx_dst = int(ptx["targetNodeId"])
+        if ptx_src in (s_node_id, d_node_id) or ptx_dst in (s_node_id, d_node_id):
+            role = "Rapid Inflow to Mule" if ptx_dst == d_node_id else "Layering Outflow"
             local_edges.append({
-                "prior_transaction_id": ptx["transaction_id"],
-                "source_upi": ptx["sender_upi"],
-                "target_upi": ptx["receiver_upi"],
+                "prior_transaction_id": int(ptx["transaction_id"]),
+                "source_upi": str(ptx["sender_upi"]),
+                "target_upi": str(ptx["receiver_upi"]),
                 "amount": round(float(ptx["amount"]), 2),
                 "timestamp_seconds": int(ptx["timestamp_seconds"]),
-                "pattern_role": role
+                "pattern_role": role,
+                "src_idx": node2idx.get(ptx_src, unknown_node_idx),
+                "dst_idx": node2idx.get(ptx_dst, unknown_node_idx)
             })
 
     gnn_influential = gnn_explainer.explain(
@@ -222,7 +261,6 @@ def run_explainability_study():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loading models and data for explainability review...")
-    # Load feature schema and XGBoost model
     from evaluate_amlsim_challenges import FEATURE_NAMES, AMLSimGraphSAGE
 
     xgb_explainer = TreeSHAPExplainer(
@@ -236,8 +274,9 @@ def run_explainability_study():
     node_x = gnn_ckpt["node_x"]
     edge_index = gnn_ckpt["edge_index"]
     node2idx = gnn_ckpt["node2idx"]
+    unknown_node_idx = gnn_ckpt.get("unknown_node_idx", len(node2idx))
 
-    gnn_explainer = GNNExplainer(gnn_model, FEATURE_NAMES)
+    gnn_explainer = GNNExplainer(gnn_model, FEATURE_NAMES, seed=42)
 
     # Load baseline transactions
     df = pd.read_csv("data/amlsim_challenges/baseline.csv")
@@ -245,11 +284,11 @@ def run_explainability_study():
     _, X = extract_scenario_features(Path("data/amlsim_challenges/baseline.csv"))
 
     # Select representative cases from test period:
-    # 1. High-confidence Money Laundering Mule Fan-in / Layering (Score: 0.983, Tx #179904)
-    # 2. High-confidence Laundering Pass-through (Score: 0.986, Tx #179931)
+    # 1. High-confidence Money Laundering Mule Fan-in / Layering
+    # 2. High-confidence Laundering Pass-through
     # 3. Legitimate Normal Transaction
     case_indices = [
-        78970,  # High risk laundering alert with 27 prior graph connections
+        78970,  # High risk laundering alert with prior graph connections
         78998,  # High risk laundering alert
         1000    # Benign low-risk transfer
     ]
@@ -280,6 +319,7 @@ def run_explainability_study():
             node_x=node_x,
             edge_index=edge_index,
             node2idx=node2idx,
+            unknown_node_idx=unknown_node_idx,
             s_node_id=int(row["sourceNodeId"]),
             d_node_id=int(row["targetNodeId"]),
             prior_tx_history=prior_history
@@ -328,12 +368,7 @@ def run_explainability_study():
         for e in cs["gnn_influential_subgraph"]:
             md_lines.append(f"| #{e['prior_transaction_id']} | `{e['source_upi']}` | `{e['target_upi']}` | ₹{e['amount']:,.2f} | {e['pattern_role']} | {e['gnn_importance_weight']} |")
 
-        md_lines += [
-            "",
-            f"**Supporting Transaction IDs**: `{', '.join(map(str, cs['supporting_transaction_ids']))}`",
-            "---",
-            ""
-        ]
+        md_lines.append("")
 
     report_file = output_dir / "explainability_report.md"
     report_file.write_text("\n".join(md_lines), encoding="utf-8")
