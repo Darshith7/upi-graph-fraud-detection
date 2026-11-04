@@ -1,5 +1,7 @@
 {
     "git.ignoreLimitWarning": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.pythonPath": "${workspaceFolder}/.venv/bin/python",
     "python.analysis.extraPaths": [
         "${workspaceFolder}/src",
         "${workspaceFolder}",
@@ -10,11 +12,16 @@
         "${workspaceFolder}",
         "./src"
     ],
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "pyright.analysis.extraPaths": [
         "${workspaceFolder}/src",
         "${workspaceFolder}",
         "./src"
+    ],
+    "pyrefly.interpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "pyrefly.pythonPath": "${workspaceFolder}/.venv/bin/python",
+    "pyrefly.searchPaths": [
+        "${workspaceFolder}/src",
+        "${workspaceFolder}"
     ],
     "python.envFile": "${workspaceFolder}/.env"
 }

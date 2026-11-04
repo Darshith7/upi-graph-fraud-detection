@@ -82,26 +82,38 @@ def prepare_challenges(raw_dir: Path, output_dir: Path, seed: int = 42):
     # Challenge 1: Disguised Suspicious
     # =========================================================================
     # Launderers disguise activity:
-    # 1. Amount perturbation: Round amounts are split into typical daily ticket sizes (₹100-₹450).
-    # 2. Timing perturbation: Introduce randomized delays (+3 to +12 steps) to break velocity rules.
+    # 1. Amount perturbation: Micro-ticket structuring (₹115-₹485) replaces round amounts.
+    # 2. Timing perturbation: Introduce randomized delays (+2 to +7 steps) to break velocity rules,
+    #    strictly partitioned so train/test fraud counts remain unconfounded.
     # Non-fraudulent transfers are preserved intact.
     disguised_df = base_df.copy()
     fraud_mask = disguised_df["is_laundering"] == 1
 
-    # Apply amount perturbation
-    disguised_amounts = disguised_df.loc[fraud_mask, "amount"].values.copy()
-    # Replace large/round laundering amounts with micro-ticket amounts (disguised splitting)
+    # Apply amount perturbation (structuring)
     split_amounts = rng.uniform(115.0, 485.0, size=fraud_mask.sum()).round(2)
     disguised_df.loc[fraud_mask, "amount"] = split_amounts
 
-    # Apply timing perturbation: delay laundering transfers
-    step_delays = rng.integers(3, 14, size=fraud_mask.sum())
-    disguised_df.loc[fraud_mask, "timestamp_step"] = np.minimum(
-        149, disguised_df.loc[fraud_mask, "timestamp_step"] + step_delays
-    )
-    disguised_df.loc[fraud_mask, "timestamp_seconds"] = (
-        base_epoch + (disguised_df.loc[fraud_mask, "timestamp_step"] * 7200) + rng.integers(0, 7200, size=fraud_mask.sum())
-    )
+    # Apply timing perturbation strictly within train and test partitions (prevents label confounding)
+    train_fraud = (disguised_df["is_laundering"] == 1) & (disguised_df["timestamp_step"] <= 90)
+    test_fraud = (disguised_df["is_laundering"] == 1) & (disguised_df["timestamp_step"] > 90)
+
+    if train_fraud.sum() > 0:
+        delays_train = rng.integers(2, 7, size=train_fraud.sum())
+        disguised_df.loc[train_fraud, "timestamp_step"] = np.minimum(
+            90, disguised_df.loc[train_fraud, "timestamp_step"] + delays_train
+        )
+        disguised_df.loc[train_fraud, "timestamp_seconds"] = (
+            base_epoch + (disguised_df.loc[train_fraud, "timestamp_step"] * 7200) + rng.integers(0, 7200, size=train_fraud.sum())
+        )
+
+    if test_fraud.sum() > 0:
+        delays_test = rng.integers(2, 7, size=test_fraud.sum())
+        disguised_df.loc[test_fraud, "timestamp_step"] = np.minimum(
+            148, disguised_df.loc[test_fraud, "timestamp_step"] + delays_test
+        )
+        disguised_df.loc[test_fraud, "timestamp_seconds"] = (
+            base_epoch + (disguised_df.loc[test_fraud, "timestamp_step"] * 7200) + rng.integers(0, 7200, size=test_fraud.sum())
+        )
 
     disguised_df = disguised_df.sort_values(by=["timestamp_seconds", "transaction_id"]).reset_index(drop=True)
     disguised_file = output_dir / "challenge_1_disguised.csv"
@@ -121,7 +133,8 @@ def prepare_challenges(raw_dir: Path, output_dir: Path, seed: int = 42):
     payroll_upi = "infosys_payroll@icici"
 
     new_rows = []
-    current_tx_id = 200_000
+    # Start IDs strictly after the maximum baseline transaction_id to prevent duplicate collisions (Critical #1 fix)
+    current_tx_id = int(base_df["transaction_id"].max()) + 1
 
     # Generate 1,500 benign customer transactions paying merchant QR hub across steps 15..140
     distinct_customers = rng.choice(nodes_df.index[nodes_df["isFraud"] == 0], size=300, replace=False)

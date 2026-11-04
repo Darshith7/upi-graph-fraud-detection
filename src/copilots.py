@@ -4,6 +4,7 @@ Implements Sections 12 and 13 from the project specification:
 1. Bank Analyst Copilot:
    - Evidence-grounded case summary.
    - Generates structured, editable Suspicious Activity Report (SAR) narrative.
+   - Risk-conditional narrative and investigator recommendations (no blanket suspicion on low-risk).
    - Refers strictly to prior transaction IDs, graph patterns, feature values, and model version.
    - Analyst retains final authority; prototype does not auto-submit.
 
@@ -11,7 +12,7 @@ Implements Sections 12 and 13 from the project specification:
    - Verifies simulated UPI ID before user confirms payment.
    - Multilingual explanations (English, Hindi, Telugu, Tamil, Marathi, Bengali).
    - If history is sparse or unavailable, explicitly flags insufficient history rather than false reassurance.
-   - Clearly disclaims synthetic model evaluation.
+   - Robust disclaimers across all supported languages.
 """
 
 from datetime import datetime, timezone
@@ -74,7 +75,7 @@ CONSUMER_SAFETY_TEMPLATES = {
         "sparse_title": "अपुरा व्यवहार इतिहास",
         "sparse_msg": "सावधान: या यूपीआय आयडीचा नेटवर्कवर फारच कमी किंवा कोणताही इतिहास नाही. नवीन खात्यांवर पैसे पाठवताना काळजी घ्या.",
         "risk_label": "जोखीम गुण",
-        "disclaimer": "सूचना: हा सल्ला केवळ प्रात्यक्षिकासाठी तयार केला आहे."
+        "disclaimer": "सूचना: हा सल्ला केवळ प्रात्यक्षिकासाठी तयार केला आहे आणि पेमेंट सुरक्षेची कोणतीही पूर्ण हमी देत नाही."
     },
     "bn": {
         "title": "ইউপিআই পেমেন্ট নিরাপত্তা পরামর্শ",
@@ -85,7 +86,7 @@ CONSUMER_SAFETY_TEMPLATES = {
         "sparse_title": "অপর্যাপ্ত লেনদেনের ইতিহাস",
         "sparse_msg": "সতর্কতা: এই ইউপিআই আইডির পর্যাপ্ত পূর্ববর্তী লেনদেনের রেকর্ড নেই। নতুন অ্যাকাউন্টে টাকা পাঠানোর সময় সতর্ক থাকুন।",
         "risk_label": "ঝুঁকি স্কোর",
-        "disclaimer": "বিজ্ঞপ্তি: এটি শুধুমাত্র নির্দেশনামূলক ঝুঁকি মূল্যায়ন।"
+        "disclaimer": "বিজ্ঞপ্তি: এটি প্রদর্শনের উদ্দেশ্যে কৃত্রিম মডেল ভিত্তিক মূল্যায়ন এবং এটি অর্থপ্রদানের সম্পূর্ণ নিরাপত্তার নিশ্চয়তা দেয় না।"
     }
 }
 
@@ -106,23 +107,36 @@ class BankAnalystCopilot:
             risk_score = float(case_data.get("risk_score", 0.0))
         except (ValueError, TypeError):
             risk_score = 0.0
-        risk_level = str(case_data.get("risk_level", "UNKNOWN"))
-        cutoff = case_data.get("graph_cutoff_timestamp", "N/A")
+        risk_level = str(case_data.get("risk_level", "UNKNOWN")).upper()
+
+        raw_cutoff = case_data.get("graph_cutoff_timestamp", case_data.get("graph_history_cutoff", "N/A"))
+        if isinstance(raw_cutoff, (int, float)) and raw_cutoff > 1_000_000_000:
+            cutoff_str = datetime.fromtimestamp(int(raw_cutoff), tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        elif isinstance(raw_cutoff, (int, float)):
+            cutoff_str = f"Temporal Step #{int(raw_cutoff)}"
+        else:
+            cutoff_str = str(raw_cutoff)
+
         reasons = case_data.get("main_reasons", [])
         supporting_ids = case_data.get("supporting_transaction_ids", [])
         subgraph = case_data.get("gnn_influential_subgraph", [])
-        shap_feats = case_data.get("tree_shap_explanation", {}).get("top_features", [])
-        model_version = "GraphSAGE-v2 / XGBoost-AMLSim-v1"
+        shap_explanation = case_data.get("tree_shap_explanation")
+        if isinstance(shap_explanation, dict):
+            shap_feats = shap_explanation.get("top_features", [])
+        else:
+            shap_feats = case_data.get("top_shap_features", [])
 
+        current_year = datetime.now(timezone.utc).year
+        model_version = "Deployed Blend (0.75 * XGBoost + 0.25 * GraphSAGE-AMLSim)"
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        # Draft structured SAR Narrative
+        # Draft structured SAR Narrative conditionally based on assessed risk
         narrative_lines = [
             f"=== SUSPICIOUS ACTIVITY REPORT (SAR) INVESTIGATION BRIEF ===",
-            f"Filing Reference: SAR-UPI-2024-{tx_id}",
+            f"Filing Reference: SAR-UPI-{current_year}-{tx_id}",
             f"Generated At: {now_str}",
             f"Scoring Engine: {model_version}",
-            f"Graph History Cutoff: {cutoff} UTC",
+            f"Graph History Cutoff: {cutoff_str}",
             "",
             "1. SUBJECT & TRANSACTION DETAILS:",
             f"   - Target Transaction ID: #{tx_id}",
@@ -131,13 +145,28 @@ class BankAnalystCopilot:
             f"   - Transfer Value: INR {amount:,.2f}",
             f"   - Assessed Risk Score: {risk_score:.4f} ({risk_level} RISK)",
             "",
-            "2. SUMMARY OF SUSPICIOUS ACTIVITY:",
-            f"   On or before time cutoff {cutoff}, beneficiary account '{receiver}' was flagged for anomalous",
-            "   payment patterns indicative of digital mule account activity. Historical graph traversal reveals:",
+            "2. SUMMARY OF SCREENING FINDINGS:"
         ]
 
-        for r in reasons:
-            narrative_lines.append(f"   • {r}")
+        if risk_level == "HIGH":
+            narrative_lines += [
+                f"   On or before time cutoff {cutoff_str}, beneficiary account '{receiver}' was flagged for anomalous",
+                "   payment patterns indicative of digital mule account activity. Historical graph traversal reveals:"
+            ]
+            for r in reasons:
+                narrative_lines.append(f"   • {r}")
+        elif risk_level == "MEDIUM":
+            narrative_lines += [
+                f"   Transaction #{tx_id} scored in the moderate/review threshold ({risk_score:.4f}).",
+                f"   Account '{receiver}' exhibits elevated transaction velocity or atypical flow features:",
+            ]
+            for r in reasons:
+                narrative_lines.append(f"   • {r}")
+        else:
+            narrative_lines += [
+                f"   Transaction #{tx_id} conforms to standard expected retail/peer clearing patterns (Risk Score: {risk_score:.4f}).",
+                "   No suspicious fan-in, circular routing, or rapid mule layering topologies detected prior to cutoff."
+            ]
 
         narrative_lines += [
             "",
@@ -153,25 +182,49 @@ class BankAnalystCopilot:
                     edge_amt = 0.0
                 narrative_lines.append(
                     f"   • Tx #{edge.get('prior_transaction_id')}: {edge.get('source_upi')} -> {edge.get('target_upi')} "
-                    f"[INR {edge_amt:,.2f}] (Role: {edge.get('pattern_role')}, GNN Weight: {edge.get('gnn_importance_weight')})"
+                    f"[INR {edge_amt:,.2f}] (Role: {edge.get('pattern_role')}, GNN Weight: {edge.get('gnn_importance_weight', 0.0)})"
                 )
         else:
-            narrative_lines.append("   • No prior multi-hop transactions found strictly prior to cutoff; flagged primarily via tabular velocity.")
+            narrative_lines.append("   • No prior multi-hop anomalous transactions found strictly prior to cutoff; scored via online baseline features.")
 
         narrative_lines += [
             "",
             "4. KEY MODEL PREDICTOR DRIVERS (SHAP ATTRIBUTION):",
         ]
-        for f in shap_feats[:4]:
-            narrative_lines.append(f"   • {f['feature']}: {f['feature_value']} (Impact: {f['shap_attribution']:+0.3f}, {f['direction']})")
+        if len(shap_feats) > 0:
+            for f in shap_feats[:4]:
+                narrative_lines.append(f"   • {f['feature']}: {f['feature_value']} (Impact: {f.get('shap_attribution', 0.0):+0.3f}, {f.get('direction', '')})")
+        else:
+            narrative_lines.append("   • Feature attributions within standard baseline expectations.")
 
+        # Recommendations conditional on risk level
         narrative_lines += [
             "",
-            "5. INVESTIGATOR RECOMMENDATION (EDITABLE):",
-            "   [X] Place temporary debit restriction on beneficiary VPA pending KYC verification.",
-            "   [X] Issue alert to counterparty sponsoring bank regarding potential mule layering.",
-            "   [ ] Request source-of-funds documentation from originating account.",
-            "   [ ] Escalate for FIU-IND (Financial Intelligence Unit - India) formal regulatory filing.",
+            "5. INVESTIGATOR RECOMMENDATION (EDITABLE):"
+        ]
+        if risk_level == "HIGH":
+            narrative_lines += [
+                "   [X] Place temporary debit restriction on beneficiary VPA pending KYC verification.",
+                "   [X] Issue alert to counterparty sponsoring bank regarding potential mule layering.",
+                "   [ ] Request source-of-funds documentation from originating account.",
+                "   [ ] Escalate for FIU-IND (Financial Intelligence Unit - India) formal regulatory filing."
+            ]
+        elif risk_level == "MEDIUM":
+            narrative_lines += [
+                "   [ ] Place temporary debit restriction on beneficiary VPA pending KYC verification.",
+                "   [X] Request customer verification / KYC refresh for counterparty handle.",
+                "   [ ] Escalate for FIU-IND formal regulatory filing.",
+                "   [X] Maintain transaction monitoring flag for subsequent 48 hours."
+            ]
+        else:
+            narrative_lines += [
+                "   [ ] Place temporary debit restriction on beneficiary VPA pending KYC verification.",
+                "   [ ] Issue alert to counterparty sponsoring bank.",
+                "   [ ] Escalate for FIU-IND formal regulatory filing.",
+                "   [X] Permit standard automated clearing without manual hold."
+            ]
+
+        narrative_lines += [
             "",
             "INVESTIGATOR SIGN-OFF:",
             "Analyst ID: ____________________    Date: ______________    Decision: [Approved / Dismissed]"
@@ -180,12 +233,13 @@ class BankAnalystCopilot:
         sar_text = "\n".join(narrative_lines)
 
         return {
-            "sar_id": f"SAR-UPI-2024-{tx_id}",
+            "sar_id": f"SAR-UPI-{current_year}-{tx_id}",
             "generated_at": now_str,
             "transaction_id": tx_id,
             "target_account": receiver,
             "risk_score": risk_score,
             "risk_level": risk_level,
+            "graph_cutoff_timestamp": cutoff_str,
             "supporting_transaction_ids": supporting_ids,
             "model_version": model_version,
             "editable_sar_text": sar_text
@@ -200,7 +254,8 @@ class ConsumerSafetyCopilot:
         recipient_upi: str,
         recent_risk_score: float = 0.05,
         total_prior_events: int = 15,
-        language: str = "en"
+        language: str = "en",
+        is_retail_hub: bool = False
     ) -> Dict[str, Any]:
         try:
             recent_risk_score = float(recent_risk_score)
@@ -216,9 +271,9 @@ class ConsumerSafetyCopilot:
             lang = "en"
         tmpl = CONSUMER_SAFETY_TEMPLATES[lang]
 
-        # Determine status
+        # Determine status: verified retail merchants or high-counterparty merchants are not mules
         is_sparse = total_prior_events < 3
-        is_high_risk = recent_risk_score >= 0.50
+        is_high_risk = (recent_risk_score >= 0.50) and not is_retail_hub
 
         if is_sparse:
             status = "SPARSE_HISTORY"
@@ -250,44 +305,6 @@ class ConsumerSafetyCopilot:
             "synthetic_risk_score": round(recent_risk_score, 4),
             "recorded_transactions_count": total_prior_events,
             "is_history_sparse": is_sparse,
+            "risk_label": tmpl["risk_label"],
             "disclaimer": tmpl["disclaimer"]
         }
-
-
-def test_copilots():
-    print("Testing Bank Analyst Copilot...")
-    mock_case = {
-        "transaction_id": 179904,
-        "sender_upi": "acc_17800@paytm",
-        "receiver_upi": "acc_08676@okhdfcbank",
-        "amount": 14.03,
-        "risk_score": 0.9832,
-        "risk_level": "HIGH",
-        "graph_cutoff_timestamp": 1725804211,
-        "main_reasons": [
-            "Rapid fan-in: Beneficiary received multiple inbound credits within 2 hours",
-            "Immediate layering: Funds routed downstream to counterparty accounts"
-        ],
-        "supporting_transaction_ids": [154566, 171490, 173795],
-        "gnn_influential_subgraph": [
-            {"prior_transaction_id": 154566, "source_upi": "acc_08676@okhdfcbank", "target_upi": "acc_03142@paytm", "amount": 256.70, "pattern_role": "Layering Outflow", "gnn_importance_weight": 0.92}
-        ],
-        "tree_shap_explanation": {
-            "top_features": [
-                {"feature": "log1p_amount", "feature_value": 2.71, "shap_attribution": 6.35, "direction": "Pushes Risk HIGHER"}
-            ]
-        }
-    }
-    sar = BankAnalystCopilot.generate_sar_summary(mock_case)
-    print(f"SAR Report Reference: {sar['sar_id']}")
-    print(sar["editable_sar_text"][:350] + "...\n")
-
-    print("Testing Consumer Safety Copilot in multiple languages...")
-    for l in ["en", "hi", "te"]:
-        adv = ConsumerSafetyCopilot.check_recipient_safety("new_vendor@upi", recent_risk_score=0.1, total_prior_events=1, language=l)
-        print(f"[{l.upper()}] {adv['title']}: {adv['advisory_message']}")
-
-
-if __name__ == "__main__":
-    test_copilots()
-

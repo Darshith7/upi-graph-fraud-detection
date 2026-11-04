@@ -85,7 +85,7 @@ def test_realtime_scoring_engine():
     assert "latency_ms" in res, "Response must record execution latency"
     assert len(res["main_reasons"]) > 0, "Response must supply explainable audit drivers"
     assert "xgb_score" in res and "gnn_score" in res, "Response must expose dual model scores"
-    expected_blend = round(0.55 * res["xgb_score"] + 0.45 * res["gnn_score"], 4)
+    expected_blend = round(ENGINE.w_xgb * res["xgb_score"] + ENGINE.w_gnn * res["gnn_score"], 4)
     assert abs(res["risk_score"] - expected_blend) <= 0.001, "Risk score must match deployed blend"
     print("✓ test_realtime_scoring_engine: PASSED")
 
@@ -100,10 +100,10 @@ def test_edge_cases_and_malformed_inputs():
     res_neg = ENGINE.score_transaction(tx_neg)
     assert res_neg["amount"] >= 0.01, "Negative amounts must be clipped safely"
 
-    # 2. None / Null fields
+    # 2. None / Null fields (properly rejected with validation error instead of fake hubs)
     tx_null = {"transaction_id": None, "sender_upi": None, "receiver_upi": None, "amount": None}
     res_null = ENGINE.score_transaction(tx_null)
-    assert isinstance(res_null["risk_score"], float), "Null inputs must resolve to default valid types"
+    assert res_null.get("valid") is False, "Malformed null payloads must be rejected safely"
 
     # 3. String numeric amounts
     tx_str_amt = {"transaction_id": 999126, "sender_upi": "acc_01@upi", "receiver_upi": "acc_02@upi", "amount": "450.50"}

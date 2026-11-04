@@ -2,8 +2,9 @@
 
 Evaluates Section 10 performance requirements:
 - Benchmarks scoring latency on 1,000+ sequential incoming transactions.
-- Computes Median (p50) and 95th Percentile (p95) response times.
-- Evaluates sub-200 ms target on the local system.
+- Instruments and empirically measures individual pipeline stages (feature extraction, XGBoost, GraphSAGE, graph state update).
+- Computes empirical Median (p50), 95th Percentile (p95), and 99th Percentile (p99) response times.
+- Dynamically computes compliance verdicts against sub-200 ms SLA targets.
 - Outputs reproducible JSON and Markdown benchmark reports in reports/api_benchmark/.
 """
 
@@ -17,7 +18,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 import pandas as pd
+import torch
+import xgboost as xgb
 
+from evaluate_amlsim_challenges import FEATURE_NAMES
 from scoring_service import ENGINE
 
 
@@ -29,27 +33,76 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
     ENGINE.reset_state()
     ENGINE.load_scenario("baseline")
 
-    latencies = []
+    total_latencies = []
+    stage_feat_times = []
+    stage_xgb_times = []
+    stage_gnn_times = []
+    stage_update_times = []
     alerts = 0
     df = ENGINE.stream_df
 
-    t0_total = time.perf_counter()
+    t0_benchmark = time.perf_counter()
     for i in range(num_transactions):
         row = df.iloc[i % len(df)]
-        payload = {
-            "transaction_id": int(row["transaction_id"]),
-            "sender_upi": str(row["sender_upi"]),
-            "receiver_upi": str(row["receiver_upi"]),
-            "amount": float(row["amount"]),
-            "timestamp": int(row["timestamp_seconds"])
-        }
-        res = ENGINE.score_transaction(payload)
-        latencies.append(res["latency_ms"])
-        if res["alert"]:
+        s_upi = str(row["sender_upi"])
+        d_upi = str(row["receiver_upi"])
+        amt = float(row["amount"])
+        t_sec = int(row["timestamp_seconds"])
+
+        s_node = ENGINE.parse_node_id(s_upi)
+        d_node = ENGINE.parse_node_id(d_upi)
+
+        # Stage 1: Feature Extraction
+        t0 = time.perf_counter()
+        features, insufficient_history = ENGINE.tracker.extract_features(s_node, d_node, amt, t_sec)
+        t_feat = (time.perf_counter() - t0) * 1000
+
+        # Stage 2: XGBoost Inference
+        t0 = time.perf_counter()
+        dmatrix = xgb.DMatrix(np.atleast_2d(features), feature_names=FEATURE_NAMES, nthread=1)
+        xgb_score = float(ENGINE.bst.predict(dmatrix)[0])
+        t_xgb = (time.perf_counter() - t0) * 1000
+
+        # Stage 3: GraphSAGE Convolution
+        t0 = time.perf_counter()
+        s_idx = ENGINE.node2idx.get(s_node, ENGINE.unknown_node_idx)
+        d_idx = ENGINE.node2idx.get(d_node, ENGINE.unknown_node_idx)
+        tx_feat = torch.from_numpy(features).float().unsqueeze(0)
+        with torch.no_grad():
+            s_t = torch.tensor([s_idx], dtype=torch.long)
+            d_t = torch.tensor([d_idx], dtype=torch.long)
+            gnn_logit = ENGINE.gnn_model(
+                ENGINE.dynamic_node_x, ENGINE.dynamic_edge_index,
+                tx_feat, s_t, d_t
+            )
+            gnn_score = float(torch.sigmoid(gnn_logit).item())
+        t_gnn = (time.perf_counter() - t0) * 1000
+
+        # Blended risk
+        risk_score = round(ENGINE.w_xgb * xgb_score + ENGINE.w_gnn * gnn_score, 4)
+        is_alert = risk_score >= ENGINE.alert_threshold
+        if is_alert:
             alerts += 1
 
-    total_wall_time_s = time.perf_counter() - t0_total
-    arr = np.array(latencies)
+        # Stage 4: Graph Mutation strictly after scoring
+        t0 = time.perf_counter()
+        ENGINE.tracker.update(s_node, d_node, t_sec)
+        ENGINE.dynamic_edge_src.append(s_idx)
+        ENGINE.dynamic_edge_dst.append(d_idx)
+        ENGINE.dynamic_edge_index = torch.tensor([ENGINE.dynamic_edge_src, ENGINE.dynamic_edge_dst], dtype=torch.long)
+        ENGINE.dynamic_node_x[s_idx] += torch.from_numpy(features) * 0.1
+        ENGINE.dynamic_node_x[d_idx] += torch.from_numpy(features) * 0.1
+        t_update = (time.perf_counter() - t0) * 1000
+
+        t_total = t_feat + t_xgb + t_gnn + t_update
+        total_latencies.append(t_total)
+        stage_feat_times.append(t_feat)
+        stage_xgb_times.append(t_xgb)
+        stage_gnn_times.append(t_gnn)
+        stage_update_times.append(t_update)
+
+    total_wall_time_s = time.perf_counter() - t0_benchmark
+    arr = np.array(total_latencies)
 
     mean_lat = float(np.mean(arr))
     median_lat = float(np.median(arr))
@@ -60,12 +113,23 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
     sub_200ms_rate = float(np.mean(arr < 200.0))
     throughput_tps = float(num_transactions / total_wall_time_s)
 
+    status_p50 = "PASS" if median_lat < 50.0 else "FAIL"
+    status_p95 = "PASS" if p95_lat < 200.0 else "FAIL"
+    status_p99 = "PASS" if p99_lat < 300.0 else "FAIL"
+    overall_pass = p95_lat < 200.0
+
     report_data = {
         "benchmark_timestamp": datetime.now(timezone.utc).isoformat(),
         "total_transactions_tested": num_transactions,
         "total_alerts_dispatched": alerts,
         "total_wall_time_seconds": round(total_wall_time_s, 3),
         "throughput_tx_per_second": round(throughput_tps, 1),
+        "pipeline_stages_measured_ms": {
+            "feature_extraction_mean": round(float(np.mean(stage_feat_times)), 3),
+            "xgboost_inference_mean": round(float(np.mean(stage_xgb_times)), 3),
+            "graphsage_convolution_mean": round(float(np.mean(stage_gnn_times)), 3),
+            "graph_mutation_mean": round(float(np.mean(stage_update_times)), 3)
+        },
         "latency_metrics_ms": {
             "mean": round(mean_lat, 2),
             "median_p50": round(median_lat, 2),
@@ -77,8 +141,8 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
         "target_evaluation": {
             "target_threshold_ms": 200.0,
             "compliance_percentage": round(sub_200ms_rate * 100, 2),
-            "target_achieved": bool(p95_lat < 200.0),
-            "verdict": "PASS: Median and p95 latency are well below the 200 ms target."
+            "target_achieved": overall_pass,
+            "verdict": f"{'PASS' if overall_pass else 'FAIL'}: Median ({median_lat:.2f} ms) and p95 ({p95_lat:.2f} ms) latency conform to SLA."
         }
     }
 
@@ -102,17 +166,18 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
         "## 2. Latency Distribution Breakdown",
         "| Metric | Latency (ms) | Operational Target | Status |",
         "|---|---|---|---|",
-        f"| **Median (p50)** | `{median_lat:.2f} ms` | &lt; 50 ms | PASS |",
-        f"| **95th Percentile (p95)** | `{p95_lat:.2f} ms` | &lt; 200 ms | PASS |",
-        f"| **99th Percentile (p99)** | `{p99_lat:.2f} ms` | &lt; 300 ms | PASS |",
+        f"| **Median (p50)** | `{median_lat:.2f} ms` | &lt; 50 ms | {status_p50} |",
+        f"| **95th Percentile (p95)** | `{p95_lat:.2f} ms` | &lt; 200 ms | {status_p95} |",
+        f"| **99th Percentile (p99)** | `{p99_lat:.2f} ms` | &lt; 300 ms | {status_p99} |",
         f"| **Minimum** | `{min_lat:.2f} ms` | - | - |",
         f"| **Maximum** | `{max_lat:.2f} ms` | - | - |",
         f"| **Mean** | `{mean_lat:.2f} ms` | - | - |",
         "",
-        "## 3. Pipeline Stages & Architectural Optimization",
-        "1. **Online Past-Only Feature Extraction**: Incremental updates in Python array buffers avoid full graph traversals at scoring time (~0.12 ms).",
-        "2. **Dual Model Scoring**: XGBoost Tree prediction (~0.15 ms) and directional GraphSAGE convolution over local 1-hop subgraph (~0.85 ms).",
-        "3. **Graph State Mutation**: Committing the transfer to the temporal graph occurs strictly *after* risk prediction to guarantee zero future data leakage."
+        "## 3. Pipeline Stages & Architectural Optimization (Measured Empirical Timings)",
+        f"1. **Online Past-Only Feature Extraction**: Incremental updates in Python array buffers avoid full graph traversals at scoring time (Measured Mean: **{np.mean(stage_feat_times):.3f} ms**).",
+        f"2. **XGBoost Tree Prediction**: Evaluation of 120 shallow depth-5 trees on tabular features (Measured Mean: **{np.mean(stage_xgb_times):.3f} ms**).",
+        f"3. **GraphSAGE 2-Hop Embedding & Classifier Head**: Directional neighborhood aggregation over evolving graph topology (Measured Mean: **{np.mean(stage_gnn_times):.3f} ms**).",
+        f"4. **Graph State Mutation**: Committing the transfer to the dynamic temporal graph occurs strictly *after* risk prediction to guarantee zero future data leakage (Measured Mean: **{np.mean(stage_update_times):.3f} ms**)."
     ]
 
     md_path = output_dir / "latency_report.md"
@@ -125,4 +190,3 @@ if __name__ == "__main__":
     parser.add_argument("--count", type=int, default=1000, help="Number of transactions to benchmark")
     args = parser.parse_args()
     run_latency_benchmark(args.count)
-

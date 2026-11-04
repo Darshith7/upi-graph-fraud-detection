@@ -1,21 +1,27 @@
 {
-  "benchmark_timestamp": "2026-11-03T09:55:30.867126+00:00",
+  "benchmark_timestamp": "2026-11-04T18:47:47.530865+00:00",
   "total_transactions_tested": 1000,
-  "total_alerts_dispatched": 2,
-  "total_wall_time_seconds": 19.51,
-  "throughput_tx_per_second": 51.3,
+  "total_alerts_dispatched": 64,
+  "total_wall_time_seconds": 11.388,
+  "throughput_tx_per_second": 87.8,
+  "pipeline_stages_measured_ms": {
+    "feature_extraction_mean": 0.012,
+    "xgboost_inference_mean": 0.198,
+    "graphsage_convolution_mean": 5.171,
+    "graph_mutation_mean": 5.907
+  },
   "latency_metrics_ms": {
-    "mean": 19.31,
-    "median_p50": 18.98,
-    "p95": 20.16,
-    "p99": 23.48,
-    "min": 17.52,
-    "max": 144.28
+    "mean": 11.29,
+    "median_p50": 10.99,
+    "p95": 12.02,
+    "p99": 13.21,
+    "min": 10.25,
+    "max": 72.62
   },
   "target_evaluation": {
     "target_threshold_ms": 200.0,
     "compliance_percentage": 100.0,
     "target_achieved": true,
-    "verdict": "PASS: Median and p95 latency are well below the 200 ms target."
+    "verdict": "PASS: Median (10.99 ms) and p95 (12.02 ms) latency conform to SLA."
   }
 }

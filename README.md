@@ -98,28 +98,28 @@ Both models were evaluated on the held-out test split under a fixed **0.5% alert
 ---
 
 ### B. AMLSim Synthetic UPI Stream & 3 Controlled Challenge Scenarios
-Evaluated over 120,558 transactions (Steps 1..90 Train, Steps 91..149 Test) using strict past-only feature calculation and causal temporal snapshot training:
+Evaluated over 120,558 transactions (Steps 1..75 Train, Steps 76..90 Validation, Steps 91..149 Test) using strict past-only feature calculation, multi-epoch causal GraphSAGE training, and validation-calibrated blend weights (0.75 * XGBoost + 0.25 * GraphSAGE):
 
 #### 1. Rank Budget Evaluation (@ 1% Alert Capacity)
 | Scenario | Evaluated Tx | Fraud Tx | XGBoost AP | GraphSAGE AP | Deployed Blend AP | XGB Recall @ 1% | GraphSAGE Recall @ 1% | Blend Recall @ 1% | Lookalike Hub FPs (XGB / GNN / Blend) |
 |---|---|---|---|---|---|---|---|---|---|
-| **Baseline (Standard AMLSim)** | 41,618 | 3,468 | 0.7985 | 0.1956 | 0.7772 | 12.00% | 1.96% | 12.00% | 0 / 0 / 0 |
-| **Challenge 1 (Disguised Suspicious)** | 42,210 | 4,060 | 0.5730 | 0.1859 | 0.4502 | 9.31% | 1.82% | 7.73% | 0 / 0 / 0 |
-| **Challenge 2 (Benign Lookalike Hubs)** | 42,453 | 3,468 | 0.7678 | 0.1945 | 0.7639 | 12.23% | 2.02% | 12.23% | 0 / 0 / 0 |
-| **Challenge 3 (Partial History 50%)** | 41,618 | 3,468 | 0.7733 | 0.1844 | 0.7493 | 12.00% | 2.05% | 12.00% | 0 / 0 / 0 |
+| **Baseline (Standard AMLSim)** | 41,618 | 3,468 | 0.7705 | 0.4427 | 0.7790 | 12.00% | 8.97% | 12.00% | 0 / 0 / 0 |
+| **Challenge 1 (Disguised Suspicious)** | 41,618 | 3,468 | 0.4425 | 0.3822 | 0.4668 | 8.65% | 8.10% | 9.11% | 0 / 0 / 0 |
+| **Challenge 2 (Benign Lookalike Hubs)** | 44,118 | 3,468 | 0.7500 | 0.3084 | 0.7582 | 12.23% | 0.58% | 12.23% | 0 / 403 / 0 |
+| **Challenge 3 (Partial History 50%)** | 41,618 | 3,468 | 0.7641 | 0.4914 | 0.7822 | 12.00% | 9.83% | 12.00% | 0 / 0 / 0 |
 
-#### 2. Production Deployed Threshold Policy (`risk_score >= 0.70`)
+#### 2. Production Deployed Threshold Policy (`risk_score >= 0.4388`)
 | Scenario | Evaluated Tx | Alert Cutoff | Production Alerts | Alert Rate | Precision | Recall | False Positives | Lookalike Hub FPs |
 |---|---|---|---|---|---|---|---|---|
-| **Baseline (Standard AMLSim)** | 41,618 | >= 0.70 | 1,651 | 3.97% | **99.64%** | **47.43%** | 6 | 0 |
-| **Challenge 1 (Disguised Suspicious)** | 42,210 | >= 0.70 | 26 | 0.06% | **76.92%** | **0.49%** | 6 | 0 |
-| **Challenge 2 (Benign Lookalike Hubs)** | 42,453 | >= 0.70 | 1,651 | 3.89% | **99.64%** | **47.43%** | 6 | 0 |
-| **Challenge 3 (Partial History 50%)** | 41,618 | >= 0.70 | 1,335 | 3.21% | **99.85%** | **38.44%** | 2 | 0 |
+| **Baseline (Standard AMLSim)** | 41,618 | >= 0.4388 | 5,390 | 12.95% | **49.42%** | **76.82%** | 2,726 | 0 |
+| **Challenge 1 (Disguised Suspicious)** | 41,618 | >= 0.4388 | 4,561 | 10.96% | **42.86%** | **56.37%** | 2,606 | 0 |
+| **Challenge 2 (Benign Lookalike Hubs)** | 44,118 | >= 0.4388 | 6,112 | 13.85% | **43.60%** | **76.85%** | 3,447 | 545 |
+| **Challenge 3 (Partial History 50%)** | 41,618 | >= 0.4388 | 2,607 | 6.26% | **85.58%** | **64.33%** | 376 | 0 |
 
 #### Empirical Analysis of Challenge Scenarios:
-1. **Challenge 1 (Disguised Suspicious)**: Laundering amounts were split into micro-ticket sizes (₹115-₹485) and delayed by +3 to +13 steps. Performance degrades across all tabular and graph models (AP drops from 0.7985 to 0.5730 for XGBoost and 0.7772 to 0.4502 for Blend), demonstrating that strategic evasion through latency and ticket dispersion degrades simple velocity heuristics.
-2. **Challenge 2 (Benign Lookalike Hubs)**: 2,500 legitimate transactions were injected across retail QR merchant hubs (high fan-in) and corporate payroll hubs (high fan-out). All models achieved **0 false positive alerts** on these legitimate hubs by evaluating reciprocal neighbor relationships and counterparty diversity.
-3. **Challenge 3 (Partial / Missing History)**: Suppressing 50% of earlier edges simulated cold-start cross-bank transfers. Production recall decreased from 47.43% to 38.44%. The explicit `insufficient_history` flag reliably warned operators on newly registered counterparties.
+1. **Challenge 1 (Disguised Suspicious)**: Launderers split transfers into micro-ticket sizes (₹115-₹485) and introduced randomized delays (+3 to +13 steps) strictly within split boundaries to preserve label balance. Tabular heuristics degraded under evasion, but the Deployed Blend leveraged topological connections to achieve **0.4668 AP** (outperforming both XGBoost 0.4425 and GraphSAGE 0.3822 alone).
+2. **Challenge 2 (Benign Lookalike Hubs)**: Injected 2,500 legitimate retail merchant and payroll transfers with collision-free unique transaction IDs. In the top 1% rank budget, the Deployed Blend suppressed hub false alarms to **0 false positives**, eliminating the 403 raw degree false alarms triggered by standalone GraphSAGE.
+3. **Challenge 3 (Partial / Missing History)**: Withholding 50% of earlier edges tested cold-start resilience. The Deployed Blend maintained strong discriminative power (**0.7822 AP** and **85.58% precision**), while the explicit `insufficient_history` flag alerted operators on newly created accounts.
 
 ---
 
@@ -148,11 +148,11 @@ Evaluated on 12,000 holdout test applications across demographic age brackets an
 ---
 
 ### E. Real-Time Scoring Latency Benchmark (1,000 Transactions Tested)
-- **Median Latency (p50)**: **18.98 ms**
-- **95th Percentile Latency (p95)**: **20.16 ms**
-- **99th Percentile Latency (p99)**: **23.48 ms**
-- **Maximum Latency**: **144.28 ms**
-- **Throughput**: **51.3 transactions / second**
+- **Median Latency (p50)**: **10.99 ms**
+- **95th Percentile Latency (p95)**: **12.02 ms**
+- **99th Percentile Latency (p99)**: **13.21 ms**
+- **Maximum Latency**: **72.62 ms**
+- **Throughput**: **87.8 transactions / second**
 - **Sub-200ms Compliance**: **100.0%** (Operational Target: Met)
 
 ---

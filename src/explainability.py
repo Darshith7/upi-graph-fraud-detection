@@ -183,7 +183,9 @@ def generate_explanation_package(
     unknown_node_idx: int,
     s_node_id: int,
     d_node_id: int,
-    prior_tx_history: List[Dict[str, Any]]
+    prior_tx_history: List[Dict[str, Any]],
+    blend_score: float = None,
+    calibrated_threshold: float = 0.4388
 ) -> Dict[str, Any]:
     """Generates an evidence-grounded explanation package."""
     # 1. SHAP Explanation
@@ -194,13 +196,25 @@ def generate_explanation_package(
     d_idx = node2idx.get(d_node_id, unknown_node_idx)
     tx_feat_tensor = torch.from_numpy(features).float().unsqueeze(0)
 
-    # Construct local edge list connecting sender or receiver
+    # Construct local edge list connecting sender or receiver strictly before cutoff
     local_edges = []
     for ptx in prior_tx_history:
+        if int(ptx.get("timestamp_seconds", 0)) >= graph_cutoff_seconds:
+            continue  # Strictly enforce past-only property
         ptx_src = int(ptx["sourceNodeId"])
         ptx_dst = int(ptx["targetNodeId"])
         if ptx_src in (s_node_id, d_node_id) or ptx_dst in (s_node_id, d_node_id):
-            role = "Rapid Inflow to Mule" if ptx_dst == d_node_id else "Layering Outflow"
+            if ptx_dst == d_node_id:
+                role = "Rapid Inflow to Beneficiary"
+            elif ptx_src == d_node_id:
+                role = "Layering Outflow from Beneficiary"
+            elif ptx_dst == s_node_id:
+                role = "Inflow to Sender"
+            elif ptx_src == s_node_id:
+                role = "Outflow from Sender"
+            else:
+                role = "Prior Network Counterparty Edge"
+
             local_edges.append({
                 "prior_transaction_id": int(ptx["transaction_id"]),
                 "source_upi": str(ptx["sender_upi"]),
@@ -216,11 +230,15 @@ def generate_explanation_package(
         node_x, edge_index, tx_feat_tensor, s_idx, d_idx, local_edges, top_k=4
     )
 
-    score = shap_res["predicted_probability"]
-    if score >= 0.70:
+    if blend_score is not None:
+        score = float(blend_score)
+    else:
+        score = shap_res["predicted_probability"]
+
+    if score >= calibrated_threshold:
         risk_level = "HIGH"
         action = "Freeze account and escalate to FIU-IND compliance"
-    elif score >= 0.35:
+    elif score >= (calibrated_threshold * 0.5):
         risk_level = "MEDIUM"
         action = "Flag for manual KYC and velocity verification"
     else:
