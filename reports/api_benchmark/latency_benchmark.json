@@ -1,27 +1,37 @@
 {
-  "benchmark_timestamp": "2026-11-04T18:47:47.530865+00:00",
+  "benchmark_timestamp": "2026-11-05T13:52:32.984269+00:00",
   "total_transactions_tested": 1000,
-  "total_alerts_dispatched": 64,
-  "total_wall_time_seconds": 11.388,
-  "throughput_tx_per_second": 87.8,
+  "total_alerts_dispatched": 57,
+  "total_wall_time_seconds": 1.81,
+  "throughput_tx_per_second": 552.6,
   "pipeline_stages_measured_ms": {
-    "feature_extraction_mean": 0.012,
-    "xgboost_inference_mean": 0.198,
-    "graphsage_convolution_mean": 5.171,
-    "graph_mutation_mean": 5.907
+    "feature_extraction_mean": 0.037,
+    "xgboost_inference_mean": 0.467,
+    "graphsage_convolution_mean": 1.031,
+    "graph_mutation_mean": 0.171
+  },
+  "end_to_end_score_transaction_ms": {
+    "transactions": 500,
+    "mean": 2.54,
+    "median_p50": 2.34,
+    "p95": 3.72,
+    "p99": 4.6,
+    "max": 24.1,
+    "throughput_tx_per_second": 393.7
   },
   "latency_metrics_ms": {
-    "mean": 11.29,
-    "median_p50": 10.99,
-    "p95": 12.02,
-    "p99": 13.21,
-    "min": 10.25,
-    "max": 72.62
+    "mean": 1.71,
+    "median_p50": 1.33,
+    "p95": 2.58,
+    "p99": 3.52,
+    "min": 1.04,
+    "max": 229.1
   },
   "target_evaluation": {
     "target_threshold_ms": 200.0,
-    "compliance_percentage": 100.0,
+    "compliance_percentage": 99.9,
     "target_achieved": true,
-    "verdict": "PASS: Median (10.99 ms) and p95 (12.02 ms) latency conform to SLA."
+    "basis": "end_to_end_score_transaction_ms.p95",
+    "verdict": "PASS: end-to-end p50 2.34 ms, p95 3.72 ms vs 200 ms target."
   }
 }

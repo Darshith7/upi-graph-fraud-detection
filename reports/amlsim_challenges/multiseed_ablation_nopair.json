@@ -1,0 +1,191 @@
+{
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "feature_sets": [
+    "windowed_nopair"
+  ],
+  "summary": {
+    "windowed_nopair": {
+      "Baseline (Standard AMLSim)": {
+        "xgboost_ap": {
+          "mean": 0.7719,
+          "std": 0.001
+        },
+        "graphsage_ap": {
+          "mean": 0.8035,
+          "std": 0.0376
+        },
+        "blend_ap": {
+          "mean": 0.8123,
+          "std": 0.0236
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0406,
+          "std": 0.0241
+        },
+        "policy_precision": {
+          "mean": 0.9338,
+          "std": 0.0118
+        },
+        "policy_recall": {
+          "mean": 0.5739,
+          "std": 0.0103
+        },
+        "policy_alert_rate": {
+          "mean": 0.0512,
+          "std": 0.0003
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.0854,
+          "std": 0.0179
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.6127,
+          "std": 0.0439
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.137,
+          "std": 0.0208
+        }
+      },
+      "Challenge 1 (Disguised Suspicious)": {
+        "xgboost_ap": {
+          "mean": 0.4047,
+          "std": 0.0148
+        },
+        "graphsage_ap": {
+          "mean": 0.4346,
+          "std": 0.1051
+        },
+        "blend_ap": {
+          "mean": 0.4768,
+          "std": 0.053
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0726,
+          "std": 0.0485
+        },
+        "policy_precision": {
+          "mean": 0.6491,
+          "std": 0.0157
+        },
+        "policy_recall": {
+          "mean": 0.299,
+          "std": 0.0738
+        },
+        "policy_alert_rate": {
+          "mean": 0.0385,
+          "std": 0.0099
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.0485,
+          "std": 0.0209
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.1707,
+          "std": 0.0095
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.02,
+          "std": 0.0013
+        }
+      },
+      "Challenge 2 (Benign Lookalike Hubs)": {
+        "xgboost_ap": {
+          "mean": 0.7618,
+          "std": 0.0006
+        },
+        "graphsage_ap": {
+          "mean": 0.794,
+          "std": 0.0384
+        },
+        "blend_ap": {
+          "mean": 0.8028,
+          "std": 0.0246
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0409,
+          "std": 0.0249
+        },
+        "policy_precision": {
+          "mean": 0.926,
+          "std": 0.0135
+        },
+        "policy_recall": {
+          "mean": 0.5834,
+          "std": 0.0118
+        },
+        "policy_alert_rate": {
+          "mean": 0.0515,
+          "std": 0.0003
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.0883,
+          "std": 0.0185
+        },
+        "benign_hub_alert_fraction": {
+          "mean": 0.0345,
+          "std": 0.0209
+        },
+        "prevalence_1pct_precision": {
+          "mean": 0.5893,
+          "std": 0.0472
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.126,
+          "std": 0.0211
+        }
+      },
+      "Challenge 3 (Partial History 50%)": {
+        "xgboost_ap": {
+          "mean": 0.7499,
+          "std": 0.0007
+        },
+        "graphsage_ap": {
+          "mean": 0.7989,
+          "std": 0.0384
+        },
+        "blend_ap": {
+          "mean": 0.8042,
+          "std": 0.0322
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0544,
+          "std": 0.0325
+        },
+        "policy_precision": {
+          "mean": 0.9624,
+          "std": 0.0091
+        },
+        "policy_recall": {
+          "mean": 0.567,
+          "std": 0.021
+        },
+        "policy_alert_rate": {
+          "mean": 0.0491,
+          "std": 0.0023
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.0646,
+          "std": 0.0115
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.7418,
+          "std": 0.0491
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.2267,
+          "std": 0.0471
+        }
+      }
+    }
+  }
+}

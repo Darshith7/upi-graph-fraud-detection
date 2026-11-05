@@ -98,6 +98,21 @@ class GNNExplainer:
         """Identify top influential historical edges by optimizing an edge mask directly on the GNN model."""
         if len(local_edge_info) == 0:
             return []
+        final_weights = self.edge_weights(node_x, edge_index, tx_feat, s_idx, d_idx, local_edge_info)
+        sorted_indices = np.argsort(final_weights)[::-1]
+        top_influential_edges = []
+        for idx in sorted_indices[:top_k]:
+            edge_meta = {k: v for k, v in local_edge_info[idx].items() if k not in ("src_idx", "dst_idx")}
+            edge_meta["gnn_importance_weight"] = round(float(final_weights[idx]), 4)
+            top_influential_edges.append(edge_meta)
+        return top_influential_edges
+
+    def edge_weights(self, node_x: torch.Tensor, edge_index: torch.Tensor,
+                     tx_feat: torch.Tensor, s_idx: int, d_idx: int,
+                     local_edge_info: List[Dict[str, Any]]) -> np.ndarray:
+        """Learned importance in [0, 1] for every candidate edge (same order as local_edge_info)."""
+        if len(local_edge_info) == 0:
+            return np.zeros(0, dtype=np.float32)
 
         torch.manual_seed(self.seed)
         num_edges = len(local_edge_info)
@@ -156,15 +171,7 @@ class GNNExplainer:
 
         with torch.no_grad():
             final_weights = torch.sigmoid(mask_param).numpy()
-
-        sorted_indices = np.argsort(final_weights)[::-1]
-        top_influential_edges = []
-        for idx in sorted_indices[:top_k]:
-            edge_meta = {k: v for k, v in local_edge_info[idx].items() if k not in ("src_idx", "dst_idx")}
-            edge_meta["gnn_importance_weight"] = round(float(final_weights[idx]), 4)
-            top_influential_edges.append(edge_meta)
-
-        return top_influential_edges
+        return final_weights
 
 
 def generate_explanation_package(
@@ -279,14 +286,17 @@ def run_explainability_study():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loading models and data for explainability review...")
-    from evaluate_amlsim_challenges import FEATURE_NAMES, AMLSimGraphSAGE
+    from evaluate_amlsim_challenges import AMLSimGraphSAGE, FEATURE_SETS
+
+    gnn_ckpt = torch.load("models/amlsim_models/graphsage_amlsim.pt", weights_only=False)
+    feature_set = gnn_ckpt.get("feature_set", "cumulative")
+    FEATURE_NAMES = list(gnn_ckpt.get("feature_names", FEATURE_SETS[feature_set]))
 
     xgb_explainer = TreeSHAPExplainer(
         "models/amlsim_models/xgboost_amlsim.ubj",
         FEATURE_NAMES
     )
 
-    gnn_ckpt = torch.load("models/amlsim_models/graphsage_amlsim.pt", weights_only=False)
     gnn_model = AMLSimGraphSAGE(in_features=len(FEATURE_NAMES), hidden_dim=32, out_dim=1)
     gnn_model.load_state_dict(gnn_ckpt["state_dict"])
     node_x = gnn_ckpt["node_x"]
@@ -299,17 +309,25 @@ def run_explainability_study():
     # Load baseline transactions
     df = pd.read_csv("data/amlsim_challenges/baseline.csv")
     from evaluate_amlsim_challenges import extract_scenario_features
-    _, X = extract_scenario_features(Path("data/amlsim_challenges/baseline.csv"))
+    _, X = extract_scenario_features(Path("data/amlsim_challenges/baseline.csv"), feature_set=feature_set)
 
-    # Select representative cases from test period:
-    # 1. High-confidence Money Laundering Mule Fan-in / Layering
-    # 2. High-confidence Laundering Pass-through
-    # 3. Legitimate Normal Transaction
-    case_indices = [
-        78970,  # High risk laundering alert with prior graph connections
-        78998,  # High risk laundering alert
-        1000    # Benign low-risk transfer
-    ]
+    # Select representative cases from the unseen test period (step > 90) BY MODEL SCORE, not by
+    # hard-coded row index (indices silently stop meaning "high risk" whenever the model changes):
+    # 1-2. The two highest-scoring true laundering transactions (different receivers)
+    # 3.   A benign transaction at the median benign score
+    xgb_scores = xgb.Booster(model_file="models/amlsim_models/xgboost_amlsim.ubj").predict(
+        xgb.DMatrix(X, feature_names=FEATURE_NAMES))
+    in_test = (df["timestamp_step"] > 90).values
+    laundering = np.where(in_test & (df["is_laundering"].values == 1))[0]
+    ranked = laundering[np.argsort(-xgb_scores[laundering])]
+    case_indices = [int(ranked[0])]
+    for i in ranked[1:]:
+        if df.iloc[int(i)]["targetNodeId"] != df.iloc[case_indices[0]]["targetNodeId"]:
+            case_indices.append(int(i))
+            break
+    benign = np.where(in_test & (df["is_laundering"].values == 0))[0]
+    benign = benign[np.argsort(xgb_scores[benign])]
+    case_indices.append(int(benign[len(benign) // 2]))
 
     case_studies = []
     for idx in case_indices:

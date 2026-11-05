@@ -1,21 +1,26 @@
 {
   "metadata": {
     "evaluation_seed": 42,
+    "feature_set": "windowed",
     "train_split_step": 75,
     "val_split_step": 90,
     "test_split_step": 90,
     "rank_alert_fraction": 0.01,
-    "deployed_score_blend": "0.75 * xgb + 0.25 * gnn",
-    "deployed_threshold": 0.4388,
+    "deployed_score_blend": "0.25 * xgb + 0.75 * gnn",
+    "deployed_threshold": 0.302,
     "calibration_summary": {
-      "best_w_xgb": 0.75,
-      "best_w_gnn": 0.25,
-      "calibrated_threshold": 0.4388,
-      "val_xgb_ap": 0.6826,
-      "val_gnn_ap": 0.4589,
-      "val_blend_ap": 0.694,
-      "val_precision_at_thresh": 0.8005,
-      "val_recall_at_thresh": 0.5686
+      "best_w_xgb": 0.25,
+      "best_w_gnn": 0.75,
+      "calibrated_threshold": 0.302,
+      "threshold_policy": "fixed_alert_budget_on_validation",
+      "val_alert_budget": 0.05,
+      "reference_max_f1_threshold": 0.4597,
+      "val_xgb_ap": 0.6913,
+      "val_gnn_ap": 0.7347,
+      "val_blend_ap": 0.7377,
+      "val_precision_at_thresh": 0.8085,
+      "val_recall_at_thresh": 0.6244,
+      "alert_window": 2000
     }
   },
   "scenarios": {
@@ -26,8 +31,8 @@
       "test_laundering_rate": 0.0833,
       "lookalike_hub_events": 0,
       "xgboost": {
-        "average_precision": 0.7705,
-        "roc_auc": 0.9148,
+        "average_precision": 0.7777,
+        "roc_auc": 0.9029,
         "rank_budget_1pct": {
           "alerts": 416,
           "true_positives": 416,
@@ -39,47 +44,21 @@
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 3129,
-          "alert_rate": 0.0752,
-          "true_positives": 2317,
-          "false_positives": 812,
-          "false_negatives": 1151,
-          "true_negatives": 37338,
-          "precision": 0.7405,
-          "recall": 0.6681,
+          "threshold": 0.302,
+          "alerts": 2808,
+          "alert_rate": 0.0675,
+          "true_positives": 2307,
+          "false_positives": 501,
+          "false_negatives": 1161,
+          "true_negatives": 37649,
+          "precision": 0.8216,
+          "recall": 0.6652,
           "lookalike_hub_false_positives": 0
         }
       },
       "graphsage": {
-        "average_precision": 0.4427,
-        "roc_auc": 0.8533,
-        "rank_budget_1pct": {
-          "alerts": 416,
-          "true_positives": 311,
-          "false_positives": 105,
-          "false_negatives": 3157,
-          "true_negatives": 38045,
-          "precision": 0.7476,
-          "recall": 0.0897,
-          "lookalike_hub_false_positives": 0
-        },
-        "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 18228,
-          "alert_rate": 0.438,
-          "true_positives": 3085,
-          "false_positives": 15143,
-          "false_negatives": 383,
-          "true_negatives": 23007,
-          "precision": 0.1692,
-          "recall": 0.8896,
-          "lookalike_hub_false_positives": 0
-        }
-      },
-      "deployed_blend": {
-        "average_precision": 0.779,
-        "roc_auc": 0.9178,
+        "average_precision": 0.84,
+        "roc_auc": 0.9354,
         "rank_budget_1pct": {
           "alerts": 416,
           "true_positives": 416,
@@ -91,17 +70,77 @@
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 5390,
-          "alert_rate": 0.1295,
-          "true_positives": 2664,
-          "false_positives": 2726,
-          "false_negatives": 804,
-          "true_negatives": 35424,
-          "precision": 0.4942,
-          "recall": 0.7682,
+          "threshold": 0.302,
+          "alerts": 3459,
+          "alert_rate": 0.0831,
+          "true_positives": 2648,
+          "false_positives": 811,
+          "false_negatives": 820,
+          "true_negatives": 37339,
+          "precision": 0.7655,
+          "recall": 0.7636,
           "lookalike_hub_false_positives": 0
         }
+      },
+      "deployed_blend": {
+        "average_precision": 0.8412,
+        "roc_auc": 0.9367,
+        "rank_budget_1pct": {
+          "alerts": 416,
+          "true_positives": 416,
+          "false_positives": 0,
+          "false_negatives": 3052,
+          "true_negatives": 38150,
+          "precision": 1.0,
+          "recall": 0.12,
+          "lookalike_hub_false_positives": 0
+        },
+        "deployed_threshold_policy": {
+          "threshold": 0.302,
+          "alerts": 3193,
+          "alert_rate": 0.0767,
+          "true_positives": 2610,
+          "false_positives": 583,
+          "false_negatives": 858,
+          "true_negatives": 37567,
+          "precision": 0.8174,
+          "recall": 0.7526,
+          "lookalike_hub_false_positives": 0
+        },
+        "prevalence_adjusted": {
+          "0.01": {
+            "average_precision": 0.7428,
+            "policy_precision": 0.6932,
+            "policy_recall": 0.5862,
+            "false_alerts_per_true_alert": 0.4
+          },
+          "0.001": {
+            "average_precision": 0.6665,
+            "policy_precision": 0.1829,
+            "policy_recall": 0.5862,
+            "false_alerts_per_true_alert": 4.5
+          }
+        },
+        "deployed_alert_policy": {
+          "policy": "max(static validation cutoff, rolling top-budget cutoff)",
+          "static_threshold": 0.302,
+          "alert_budget": 0.05,
+          "alerts": 2133,
+          "alert_rate": 0.0513,
+          "true_positives": 2033,
+          "false_positives": 100,
+          "false_negatives": 1435,
+          "precision": 0.9531,
+          "recall": 0.5862,
+          "lookalike_hub_false_positives": 0
+        }
+      },
+      "blend_minus_xgboost_ap": {
+        "mean": 0.0639,
+        "ci95_low": 0.0578,
+        "ci95_high": 0.0716,
+        "n_boot": 200,
+        "significant": true
       },
       "sample_missed_fraud_cases": [
         {
@@ -110,9 +149,9 @@
           "receiver_upi": "acc_06223@oksbi",
           "amount": 527.45,
           "step": 91,
-          "gnn_score": 0.1556,
-          "xgb_score": 0.1337,
-          "blend_score": 0.1391,
+          "gnn_score": 0.1271,
+          "xgb_score": 0.0668,
+          "blend_score": 0.112,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -121,9 +160,9 @@
           "receiver_upi": "acc_08676@okhdfcbank",
           "amount": 14.03,
           "step": 91,
-          "gnn_score": 0.375,
-          "xgb_score": 0.9828,
-          "blend_score": 0.8308,
+          "gnn_score": 0.5185,
+          "xgb_score": 0.9831,
+          "blend_score": 0.6346,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -132,9 +171,9 @@
           "receiver_upi": "acc_19810@paytm",
           "amount": 234.66,
           "step": 91,
-          "gnn_score": 0.5695,
-          "xgb_score": 0.3365,
-          "blend_score": 0.3948,
+          "gnn_score": 0.4089,
+          "xgb_score": 0.1722,
+          "blend_score": 0.3497,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -143,9 +182,9 @@
           "receiver_upi": "acc_09872@okaxis",
           "amount": 3.01,
           "step": 91,
-          "gnn_score": 0.8235,
-          "xgb_score": 0.9865,
-          "blend_score": 0.9458,
+          "gnn_score": 0.947,
+          "xgb_score": 0.9969,
+          "blend_score": 0.9595,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -154,74 +193,13 @@
           "receiver_upi": "acc_08190@okhdfcbank",
           "amount": 4.18,
           "step": 91,
-          "gnn_score": 0.2132,
-          "xgb_score": 0.9829,
-          "blend_score": 0.7905,
+          "gnn_score": 0.8175,
+          "xgb_score": 0.9838,
+          "blend_score": 0.8591,
           "reason": "Missed due to disguised timing/amount dispersion"
         }
       ],
-      "sample_false_alarm_cases": [
-        {
-          "transaction_id": 218134,
-          "sender_upi": "acc_19549@oksbi",
-          "receiver_upi": "acc_19354@paytm",
-          "amount": 121.15,
-          "step": 137,
-          "gnn_score": 0.9997,
-          "xgb_score": 0.3275,
-          "blend_score": 0.4955,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220514,
-          "sender_upi": "acc_19356@okhdfcbank",
-          "receiver_upi": "acc_19999@oksbi",
-          "amount": 170.47,
-          "step": 149,
-          "gnn_score": 0.9996,
-          "xgb_score": 0.451,
-          "blend_score": 0.5881,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 216931,
-          "sender_upi": "acc_18743@upi",
-          "receiver_upi": "acc_18718@paytm",
-          "amount": 388.6,
-          "step": 134,
-          "gnn_score": 0.9996,
-          "xgb_score": 0.5204,
-          "blend_score": 0.6402,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220294,
-          "sender_upi": "acc_19615@oksbi",
-          "receiver_upi": "acc_14558@okaxis",
-          "amount": 288.85,
-          "step": 146,
-          "gnn_score": 0.9996,
-          "xgb_score": 0.5096,
-          "blend_score": 0.6321,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220270,
-          "sender_upi": "acc_19064@okaxis",
-          "receiver_upi": "acc_11483@upi",
-          "amount": 432.01,
-          "step": 146,
-          "gnn_score": 0.9995,
-          "xgb_score": 0.1047,
-          "blend_score": 0.3284,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        }
-      ]
+      "sample_false_alarm_cases": []
     },
     "Challenge 1 (Disguised Suspicious)": {
       "scenario": "Challenge 1 (Disguised Suspicious)",
@@ -230,82 +208,116 @@
       "test_laundering_rate": 0.0833,
       "lookalike_hub_events": 0,
       "xgboost": {
-        "average_precision": 0.4425,
-        "roc_auc": 0.8624,
+        "average_precision": 0.6944,
+        "roc_auc": 0.8579,
         "rank_budget_1pct": {
           "alerts": 416,
-          "true_positives": 300,
-          "false_positives": 116,
-          "false_negatives": 3168,
-          "true_negatives": 38034,
-          "precision": 0.7212,
-          "recall": 0.0865,
+          "true_positives": 416,
+          "false_positives": 0,
+          "false_negatives": 3052,
+          "true_negatives": 38150,
+          "precision": 1.0,
+          "recall": 0.12,
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 1870,
-          "alert_rate": 0.0449,
-          "true_positives": 1072,
-          "false_positives": 798,
-          "false_negatives": 2396,
-          "true_negatives": 37352,
-          "precision": 0.5733,
-          "recall": 0.3091,
+          "threshold": 0.302,
+          "alerts": 2419,
+          "alert_rate": 0.0581,
+          "true_positives": 1958,
+          "false_positives": 461,
+          "false_negatives": 1510,
+          "true_negatives": 37689,
+          "precision": 0.8094,
+          "recall": 0.5646,
           "lookalike_hub_false_positives": 0
         }
       },
       "graphsage": {
-        "average_precision": 0.3822,
-        "roc_auc": 0.8305,
+        "average_precision": 0.7447,
+        "roc_auc": 0.8995,
         "rank_budget_1pct": {
           "alerts": 416,
-          "true_positives": 281,
-          "false_positives": 135,
-          "false_negatives": 3187,
-          "true_negatives": 38015,
-          "precision": 0.6755,
-          "recall": 0.081,
+          "true_positives": 416,
+          "false_positives": 0,
+          "false_negatives": 3052,
+          "true_negatives": 38150,
+          "precision": 1.0,
+          "recall": 0.12,
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 17613,
-          "alert_rate": 0.4232,
-          "true_positives": 2970,
-          "false_positives": 14643,
-          "false_negatives": 498,
-          "true_negatives": 23507,
-          "precision": 0.1686,
-          "recall": 0.8564,
+          "threshold": 0.302,
+          "alerts": 2790,
+          "alert_rate": 0.067,
+          "true_positives": 2139,
+          "false_positives": 651,
+          "false_negatives": 1329,
+          "true_negatives": 37499,
+          "precision": 0.7667,
+          "recall": 0.6168,
           "lookalike_hub_false_positives": 0
         }
       },
       "deployed_blend": {
-        "average_precision": 0.4668,
-        "roc_auc": 0.8681,
+        "average_precision": 0.7709,
+        "roc_auc": 0.909,
         "rank_budget_1pct": {
           "alerts": 416,
-          "true_positives": 316,
-          "false_positives": 100,
-          "false_negatives": 3152,
-          "true_negatives": 38050,
-          "precision": 0.7596,
-          "recall": 0.0911,
+          "true_positives": 416,
+          "false_positives": 0,
+          "false_negatives": 3052,
+          "true_negatives": 38150,
+          "precision": 1.0,
+          "recall": 0.12,
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 4561,
-          "alert_rate": 0.1096,
-          "true_positives": 1955,
-          "false_positives": 2606,
-          "false_negatives": 1513,
-          "true_negatives": 35544,
-          "precision": 0.4286,
-          "recall": 0.5637,
+          "threshold": 0.302,
+          "alerts": 2685,
+          "alert_rate": 0.0645,
+          "true_positives": 2219,
+          "false_positives": 466,
+          "false_negatives": 1249,
+          "true_negatives": 37684,
+          "precision": 0.8264,
+          "recall": 0.6399,
+          "lookalike_hub_false_positives": 0
+        },
+        "prevalence_adjusted": {
+          "0.01": {
+            "average_precision": 0.6207,
+            "policy_precision": 0.5387,
+            "policy_recall": 0.5121,
+            "false_alerts_per_true_alert": 0.9
+          },
+          "0.001": {
+            "average_precision": 0.5038,
+            "policy_precision": 0.1037,
+            "policy_recall": 0.5121,
+            "false_alerts_per_true_alert": 8.6
+          }
+        },
+        "deployed_alert_policy": {
+          "policy": "max(static validation cutoff, rolling top-budget cutoff)",
+          "static_threshold": 0.302,
+          "alert_budget": 0.05,
+          "alerts": 1945,
+          "alert_rate": 0.0467,
+          "true_positives": 1776,
+          "false_positives": 169,
+          "false_negatives": 1692,
+          "precision": 0.9131,
+          "recall": 0.5121,
           "lookalike_hub_false_positives": 0
         }
+      },
+      "blend_minus_xgboost_ap": {
+        "mean": 0.077,
+        "ci95_low": 0.0687,
+        "ci95_high": 0.0857,
+        "n_boot": 200,
+        "significant": true
       },
       "sample_missed_fraud_cases": [
         {
@@ -314,20 +326,9 @@
           "receiver_upi": "acc_19313@upi",
           "amount": 251.61,
           "step": 93,
-          "gnn_score": 0.309,
-          "xgb_score": 0.0874,
-          "blend_score": 0.1428,
-          "reason": "Missed due to disguised timing/amount dispersion"
-        },
-        {
-          "transaction_id": 180028,
-          "sender_upi": "acc_19063@oksbi",
-          "receiver_upi": "acc_03209@upi",
-          "amount": 465.29,
-          "step": 93,
-          "gnn_score": 0.973,
-          "xgb_score": 0.492,
-          "blend_score": 0.6122,
+          "gnn_score": 0.157,
+          "xgb_score": 0.0967,
+          "blend_score": 0.1419,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -336,9 +337,9 @@
           "receiver_upi": "acc_09913@oksbi",
           "amount": 393.4,
           "step": 93,
-          "gnn_score": 0.942,
-          "xgb_score": 0.3274,
-          "blend_score": 0.481,
+          "gnn_score": 0.7239,
+          "xgb_score": 0.2653,
+          "blend_score": 0.6092,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -347,9 +348,9 @@
           "receiver_upi": "acc_12747@icici",
           "amount": 220.67,
           "step": 93,
-          "gnn_score": 0.0557,
-          "xgb_score": 0.0597,
-          "blend_score": 0.0587,
+          "gnn_score": 0.0446,
+          "xgb_score": 0.0603,
+          "blend_score": 0.0485,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -358,74 +359,24 @@
           "receiver_upi": "acc_08190@okhdfcbank",
           "amount": 319.63,
           "step": 93,
-          "gnn_score": 0.039,
-          "xgb_score": 0.0506,
-          "blend_score": 0.0477,
+          "gnn_score": 0.0367,
+          "xgb_score": 0.0511,
+          "blend_score": 0.0403,
+          "reason": "Missed due to disguised timing/amount dispersion"
+        },
+        {
+          "transaction_id": 179326,
+          "sender_upi": "acc_07949@upi",
+          "receiver_upi": "acc_09694@paytm",
+          "amount": 206.0,
+          "step": 93,
+          "gnn_score": 0.0495,
+          "xgb_score": 0.0562,
+          "blend_score": 0.0512,
           "reason": "Missed due to disguised timing/amount dispersion"
         }
       ],
-      "sample_false_alarm_cases": [
-        {
-          "transaction_id": 220514,
-          "sender_upi": "acc_19356@okhdfcbank",
-          "receiver_upi": "acc_19999@oksbi",
-          "amount": 170.47,
-          "step": 149,
-          "gnn_score": 0.9996,
-          "xgb_score": 0.451,
-          "blend_score": 0.5881,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220006,
-          "sender_upi": "acc_19561@oksbi",
-          "receiver_upi": "acc_19736@okaxis",
-          "amount": 198.35,
-          "step": 144,
-          "gnn_score": 0.9994,
-          "xgb_score": 0.3012,
-          "blend_score": 0.4757,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220270,
-          "sender_upi": "acc_19064@okaxis",
-          "receiver_upi": "acc_11483@upi",
-          "amount": 432.01,
-          "step": 146,
-          "gnn_score": 0.9993,
-          "xgb_score": 0.1047,
-          "blend_score": 0.3284,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 218134,
-          "sender_upi": "acc_19549@oksbi",
-          "receiver_upi": "acc_19354@paytm",
-          "amount": 121.15,
-          "step": 137,
-          "gnn_score": 0.9989,
-          "xgb_score": 0.3217,
-          "blend_score": 0.491,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 216462,
-          "sender_upi": "acc_18718@paytm",
-          "receiver_upi": "acc_09918@okhdfcbank",
-          "amount": 335.51,
-          "step": 133,
-          "gnn_score": 0.9986,
-          "xgb_score": 0.3698,
-          "blend_score": 0.527,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        }
-      ]
+      "sample_false_alarm_cases": []
     },
     "Challenge 2 (Benign Lookalike Hubs)": {
       "scenario": "Challenge 2 (Benign Lookalike Hubs)",
@@ -434,8 +385,8 @@
       "test_laundering_rate": 0.0817,
       "lookalike_hub_events": 835,
       "xgboost": {
-        "average_precision": 0.75,
-        "roc_auc": 0.9071,
+        "average_precision": 0.7414,
+        "roc_auc": 0.8953,
         "rank_budget_1pct": {
           "alerts": 424,
           "true_positives": 424,
@@ -447,47 +398,47 @@
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 3642,
+          "threshold": 0.302,
+          "alerts": 3644,
           "alert_rate": 0.0858,
-          "true_positives": 2317,
-          "false_positives": 1325,
-          "false_negatives": 1151,
-          "true_negatives": 37660,
-          "precision": 0.6362,
-          "recall": 0.6681,
-          "lookalike_hub_false_positives": 433
+          "true_positives": 2307,
+          "false_positives": 1337,
+          "false_negatives": 1161,
+          "true_negatives": 37648,
+          "precision": 0.6331,
+          "recall": 0.6652,
+          "lookalike_hub_false_positives": 828
         }
       },
       "graphsage": {
-        "average_precision": 0.3084,
-        "roc_auc": 0.8403,
+        "average_precision": 0.7838,
+        "roc_auc": 0.9285,
         "rank_budget_1pct": {
           "alerts": 424,
-          "true_positives": 20,
-          "false_positives": 404,
-          "false_negatives": 3448,
-          "true_negatives": 38581,
-          "precision": 0.0472,
-          "recall": 0.0058,
-          "lookalike_hub_false_positives": 403
+          "true_positives": 423,
+          "false_positives": 1,
+          "false_negatives": 3045,
+          "true_negatives": 38984,
+          "precision": 0.9976,
+          "recall": 0.122,
+          "lookalike_hub_false_positives": 1
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 18981,
-          "alert_rate": 0.4471,
-          "true_positives": 3088,
-          "false_positives": 15893,
-          "false_negatives": 380,
-          "true_negatives": 23092,
-          "precision": 0.1627,
-          "recall": 0.8904,
-          "lookalike_hub_false_positives": 578
+          "threshold": 0.302,
+          "alerts": 4085,
+          "alert_rate": 0.0962,
+          "true_positives": 2648,
+          "false_positives": 1437,
+          "false_negatives": 820,
+          "true_negatives": 37548,
+          "precision": 0.6482,
+          "recall": 0.7636,
+          "lookalike_hub_false_positives": 568
         }
       },
       "deployed_blend": {
-        "average_precision": 0.7582,
-        "roc_auc": 0.9117,
+        "average_precision": 0.7897,
+        "roc_auc": 0.9291,
         "rank_budget_1pct": {
           "alerts": 424,
           "true_positives": 424,
@@ -499,17 +450,51 @@
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 6112,
-          "alert_rate": 0.144,
-          "true_positives": 2665,
-          "false_positives": 3447,
-          "false_negatives": 803,
-          "true_negatives": 35538,
-          "precision": 0.436,
-          "recall": 0.7685,
-          "lookalike_hub_false_positives": 545
+          "threshold": 0.302,
+          "alerts": 3826,
+          "alert_rate": 0.0901,
+          "true_positives": 2610,
+          "false_positives": 1216,
+          "false_negatives": 858,
+          "true_negatives": 37769,
+          "precision": 0.6822,
+          "recall": 0.7526,
+          "lookalike_hub_false_positives": 584
+        },
+        "prevalence_adjusted": {
+          "0.01": {
+            "average_precision": 0.5935,
+            "policy_precision": 0.4467,
+            "policy_recall": 0.5597,
+            "false_alerts_per_true_alert": 1.2
+          },
+          "0.001": {
+            "average_precision": 0.4289,
+            "policy_precision": 0.0741,
+            "policy_recall": 0.5597,
+            "false_alerts_per_true_alert": 12.5
+          }
+        },
+        "deployed_alert_policy": {
+          "policy": "max(static validation cutoff, rolling top-budget cutoff)",
+          "static_threshold": 0.302,
+          "alert_budget": 0.05,
+          "alerts": 2214,
+          "alert_rate": 0.0522,
+          "true_positives": 1941,
+          "false_positives": 273,
+          "false_negatives": 1527,
+          "precision": 0.8767,
+          "recall": 0.5597,
+          "lookalike_hub_false_positives": 235
         }
+      },
+      "blend_minus_xgboost_ap": {
+        "mean": 0.048,
+        "ci95_low": 0.0414,
+        "ci95_high": 0.0553,
+        "n_boot": 200,
+        "significant": true
       },
       "sample_missed_fraud_cases": [
         {
@@ -518,9 +503,9 @@
           "receiver_upi": "acc_06223@oksbi",
           "amount": 527.45,
           "step": 91,
-          "gnn_score": 0.1556,
-          "xgb_score": 0.1337,
-          "blend_score": 0.1391,
+          "gnn_score": 0.1271,
+          "xgb_score": 0.0668,
+          "blend_score": 0.112,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -529,9 +514,9 @@
           "receiver_upi": "acc_08676@okhdfcbank",
           "amount": 14.03,
           "step": 91,
-          "gnn_score": 0.375,
-          "xgb_score": 0.9828,
-          "blend_score": 0.8308,
+          "gnn_score": 0.5185,
+          "xgb_score": 0.9831,
+          "blend_score": 0.6346,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -540,9 +525,9 @@
           "receiver_upi": "acc_19810@paytm",
           "amount": 234.66,
           "step": 91,
-          "gnn_score": 0.5695,
-          "xgb_score": 0.3365,
-          "blend_score": 0.3948,
+          "gnn_score": 0.4089,
+          "xgb_score": 0.1722,
+          "blend_score": 0.3497,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -551,9 +536,9 @@
           "receiver_upi": "acc_09872@okaxis",
           "amount": 3.01,
           "step": 91,
-          "gnn_score": 0.8235,
-          "xgb_score": 0.9865,
-          "blend_score": 0.9458,
+          "gnn_score": 0.947,
+          "xgb_score": 0.9969,
+          "blend_score": 0.9595,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -562,70 +547,22 @@
           "receiver_upi": "acc_08190@okhdfcbank",
           "amount": 4.18,
           "step": 91,
-          "gnn_score": 0.2132,
-          "xgb_score": 0.9829,
-          "blend_score": 0.7905,
+          "gnn_score": 0.8175,
+          "xgb_score": 0.9838,
+          "blend_score": 0.8591,
           "reason": "Missed due to disguised timing/amount dispersion"
         }
       ],
       "sample_false_alarm_cases": [
         {
-          "transaction_id": 221667,
-          "sender_upi": "acc_11901@icici",
+          "transaction_id": 220715,
+          "sender_upi": "acc_04920@okhdfcbank",
           "receiver_upi": "dmart_retail_hub@okhdfcbank",
-          "amount": 1548.52,
-          "step": 129,
-          "gnn_score": 1.0,
-          "xgb_score": 0.416,
-          "blend_score": 0.562,
-          "is_lookalike_hub": true,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220858,
-          "sender_upi": "acc_08890@paytm",
-          "receiver_upi": "dmart_retail_hub@okhdfcbank",
-          "amount": 625.46,
-          "step": 122,
-          "gnn_score": 1.0,
-          "xgb_score": 0.6731,
-          "blend_score": 0.7548,
-          "is_lookalike_hub": true,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 221090,
-          "sender_upi": "acc_15316@paytm",
-          "receiver_upi": "dmart_retail_hub@okhdfcbank",
-          "amount": 932.2,
-          "step": 130,
-          "gnn_score": 1.0,
-          "xgb_score": 0.4683,
-          "blend_score": 0.6013,
-          "is_lookalike_hub": true,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 221260,
-          "sender_upi": "acc_06629@upi",
-          "receiver_upi": "dmart_retail_hub@okhdfcbank",
-          "amount": 1733.59,
-          "step": 135,
-          "gnn_score": 1.0,
-          "xgb_score": 0.7166,
-          "blend_score": 0.7874,
-          "is_lookalike_hub": true,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220879,
-          "sender_upi": "acc_12797@upi",
-          "receiver_upi": "dmart_retail_hub@okhdfcbank",
-          "amount": 1666.18,
-          "step": 135,
-          "gnn_score": 1.0,
-          "xgb_score": 0.5122,
-          "blend_score": 0.6341,
+          "amount": 62.22,
+          "step": 108,
+          "gnn_score": 0.9998,
+          "xgb_score": 0.9894,
+          "blend_score": 0.9972,
           "is_lookalike_hub": true,
           "reason": "Elevated fan-in triggering rank threshold"
         }
@@ -638,8 +575,8 @@
       "test_laundering_rate": 0.0833,
       "lookalike_hub_events": 0,
       "xgboost": {
-        "average_precision": 0.7641,
-        "roc_auc": 0.9001,
+        "average_precision": 0.7578,
+        "roc_auc": 0.8873,
         "rank_budget_1pct": {
           "alerts": 416,
           "true_positives": 416,
@@ -651,47 +588,21 @@
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 2152,
-          "alert_rate": 0.0517,
-          "true_positives": 2050,
-          "false_positives": 102,
-          "false_negatives": 1418,
-          "true_negatives": 38048,
-          "precision": 0.9526,
-          "recall": 0.5911,
+          "threshold": 0.302,
+          "alerts": 2236,
+          "alert_rate": 0.0537,
+          "true_positives": 2149,
+          "false_positives": 87,
+          "false_negatives": 1319,
+          "true_negatives": 38063,
+          "precision": 0.9611,
+          "recall": 0.6197,
           "lookalike_hub_false_positives": 0
         }
       },
       "graphsage": {
-        "average_precision": 0.4914,
-        "roc_auc": 0.8671,
-        "rank_budget_1pct": {
-          "alerts": 416,
-          "true_positives": 341,
-          "false_positives": 75,
-          "false_negatives": 3127,
-          "true_negatives": 38075,
-          "precision": 0.8197,
-          "recall": 0.0983,
-          "lookalike_hub_false_positives": 0
-        },
-        "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 12609,
-          "alert_rate": 0.303,
-          "true_positives": 2853,
-          "false_positives": 9756,
-          "false_negatives": 615,
-          "true_negatives": 28394,
-          "precision": 0.2263,
-          "recall": 0.8227,
-          "lookalike_hub_false_positives": 0
-        }
-      },
-      "deployed_blend": {
-        "average_precision": 0.7822,
-        "roc_auc": 0.9181,
+        "average_precision": 0.8298,
+        "roc_auc": 0.9289,
         "rank_budget_1pct": {
           "alerts": 416,
           "true_positives": 416,
@@ -703,17 +614,77 @@
           "lookalike_hub_false_positives": 0
         },
         "deployed_threshold_policy": {
-          "threshold": 0.4388,
-          "alerts": 2607,
-          "alert_rate": 0.0626,
-          "true_positives": 2231,
-          "false_positives": 376,
-          "false_negatives": 1237,
-          "true_negatives": 37774,
-          "precision": 0.8558,
-          "recall": 0.6433,
+          "threshold": 0.302,
+          "alerts": 2726,
+          "alert_rate": 0.0655,
+          "true_positives": 2469,
+          "false_positives": 257,
+          "false_negatives": 999,
+          "true_negatives": 37893,
+          "precision": 0.9057,
+          "recall": 0.7119,
           "lookalike_hub_false_positives": 0
         }
+      },
+      "deployed_blend": {
+        "average_precision": 0.8323,
+        "roc_auc": 0.93,
+        "rank_budget_1pct": {
+          "alerts": 416,
+          "true_positives": 416,
+          "false_positives": 0,
+          "false_negatives": 3052,
+          "true_negatives": 38150,
+          "precision": 1.0,
+          "recall": 0.12,
+          "lookalike_hub_false_positives": 0
+        },
+        "deployed_threshold_policy": {
+          "threshold": 0.302,
+          "alerts": 2569,
+          "alert_rate": 0.0617,
+          "true_positives": 2434,
+          "false_positives": 135,
+          "false_negatives": 1034,
+          "true_negatives": 38015,
+          "precision": 0.9475,
+          "recall": 0.7018,
+          "lookalike_hub_false_positives": 0
+        },
+        "prevalence_adjusted": {
+          "0.01": {
+            "average_precision": 0.7338,
+            "policy_precision": 0.8331,
+            "policy_recall": 0.5828,
+            "false_alerts_per_true_alert": 0.2
+          },
+          "0.001": {
+            "average_precision": 0.6612,
+            "policy_precision": 0.3309,
+            "policy_recall": 0.5828,
+            "false_alerts_per_true_alert": 2.0
+          }
+        },
+        "deployed_alert_policy": {
+          "policy": "max(static validation cutoff, rolling top-budget cutoff)",
+          "static_threshold": 0.302,
+          "alert_budget": 0.05,
+          "alerts": 2066,
+          "alert_rate": 0.0496,
+          "true_positives": 2021,
+          "false_positives": 45,
+          "false_negatives": 1447,
+          "precision": 0.9782,
+          "recall": 0.5828,
+          "lookalike_hub_false_positives": 0
+        }
+      },
+      "blend_minus_xgboost_ap": {
+        "mean": 0.0746,
+        "ci95_low": 0.0664,
+        "ci95_high": 0.0824,
+        "n_boot": 200,
+        "significant": true
       },
       "sample_missed_fraud_cases": [
         {
@@ -722,9 +693,9 @@
           "receiver_upi": "acc_06223@oksbi",
           "amount": 527.45,
           "step": 91,
-          "gnn_score": 0.1407,
-          "xgb_score": 0.1026,
-          "blend_score": 0.1121,
+          "gnn_score": 0.1385,
+          "xgb_score": 0.0613,
+          "blend_score": 0.1192,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -733,9 +704,9 @@
           "receiver_upi": "acc_08676@okhdfcbank",
           "amount": 14.03,
           "step": 91,
-          "gnn_score": 0.3054,
-          "xgb_score": 0.978,
-          "blend_score": 0.8098,
+          "gnn_score": 0.5603,
+          "xgb_score": 0.9828,
+          "blend_score": 0.6659,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -744,9 +715,9 @@
           "receiver_upi": "acc_19810@paytm",
           "amount": 234.66,
           "step": 91,
-          "gnn_score": 0.5467,
-          "xgb_score": 0.0614,
-          "blend_score": 0.1827,
+          "gnn_score": 0.3636,
+          "xgb_score": 0.0636,
+          "blend_score": 0.2886,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -755,9 +726,9 @@
           "receiver_upi": "acc_09872@okaxis",
           "amount": 3.01,
           "step": 91,
-          "gnn_score": 0.7199,
-          "xgb_score": 0.9786,
-          "blend_score": 0.914,
+          "gnn_score": 0.8973,
+          "xgb_score": 0.9814,
+          "blend_score": 0.9183,
           "reason": "Missed due to disguised timing/amount dispersion"
         },
         {
@@ -766,74 +737,13 @@
           "receiver_upi": "acc_08190@okhdfcbank",
           "amount": 4.18,
           "step": 91,
-          "gnn_score": 0.179,
-          "xgb_score": 0.981,
-          "blend_score": 0.7805,
+          "gnn_score": 0.8175,
+          "xgb_score": 0.9838,
+          "blend_score": 0.8591,
           "reason": "Missed due to disguised timing/amount dispersion"
         }
       ],
-      "sample_false_alarm_cases": [
-        {
-          "transaction_id": 218134,
-          "sender_upi": "acc_19549@oksbi",
-          "receiver_upi": "acc_19354@paytm",
-          "amount": 121.15,
-          "step": 137,
-          "gnn_score": 0.9996,
-          "xgb_score": 0.198,
-          "blend_score": 0.3984,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 214601,
-          "sender_upi": "acc_19280@okaxis",
-          "receiver_upi": "acc_18970@paytm",
-          "amount": 154.67,
-          "step": 129,
-          "gnn_score": 0.9991,
-          "xgb_score": 0.279,
-          "blend_score": 0.459,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220100,
-          "sender_upi": "acc_18421@oksbi",
-          "receiver_upi": "acc_03582@okhdfcbank",
-          "amount": 285.1,
-          "step": 145,
-          "gnn_score": 0.999,
-          "xgb_score": 0.1125,
-          "blend_score": 0.3341,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 220006,
-          "sender_upi": "acc_19561@oksbi",
-          "receiver_upi": "acc_19736@okaxis",
-          "amount": 198.35,
-          "step": 144,
-          "gnn_score": 0.999,
-          "xgb_score": 0.1979,
-          "blend_score": 0.3982,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        },
-        {
-          "transaction_id": 216931,
-          "sender_upi": "acc_18743@upi",
-          "receiver_upi": "acc_18718@paytm",
-          "amount": 388.6,
-          "step": 134,
-          "gnn_score": 0.999,
-          "xgb_score": 0.1857,
-          "blend_score": 0.389,
-          "is_lookalike_hub": false,
-          "reason": "Elevated fan-in triggering rank threshold"
-        }
-      ]
+      "sample_false_alarm_cases": []
     }
   }
 }

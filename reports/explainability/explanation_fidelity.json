@@ -1,0 +1,16 @@
+{
+  "cases": 60,
+  "k": 2,
+  "mean_full_logit": 2.1211,
+  "mean_abs_logit_change_random_k": 0.04398,
+  "mean_logit_drop": {
+    "explainer_top_k": 0.0181,
+    "random_k": 0.0109,
+    "most_recent_k": -0.0082
+  },
+  "cases_where_top_k_beats_random": 0.5333,
+  "wilcoxon_top_vs_random_p": 0.4400038243154404,
+  "wilcoxon_top_vs_most_recent_p": 0.17106460266927315,
+  "faithful": false,
+  "note": "drop = logit(all candidate edges) - logit(after removing edges); larger means the removed edges mattered more"
+}

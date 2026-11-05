@@ -1,0 +1,7 @@
+{
+  "description": "Verified benign merchant handles (seed data from the AMLSim benign-hub scenario). Replace with a KYC-backed merchant registry in production.",
+  "source": "challenge_2_lookalike.csv",
+  "verified_merchants": [
+    "dmart_retail_hub@okhdfcbank"
+  ]
+}

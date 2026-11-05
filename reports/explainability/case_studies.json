@@ -1,253 +1,296 @@
 [
   {
-    "transaction_id": 179904,
-    "prediction_time": "2026-11-04T18:45:07.514286+00:00",
-    "graph_cutoff_timestamp": 1725804211,
-    "sender_upi": "acc_17800@paytm",
-    "receiver_upi": "acc_08676@okhdfcbank",
-    "amount": 14.03,
-    "risk_score": 0.9828,
+    "transaction_id": 211329,
+    "prediction_time": "2026-11-05T13:47:04.735045+00:00",
+    "graph_cutoff_timestamp": 1726037582,
+    "sender_upi": "acc_19088@okaxis",
+    "receiver_upi": "acc_19773@icici",
+    "amount": 3.35,
+    "risk_score": 0.9978,
     "risk_level": "HIGH",
     "recommended_action": "Freeze account and escalate to FIU-IND compliance",
     "main_reasons": [
-      "log1p_amount = 2.71 (Pushes Risk HIGHER, SHAP: +6.34)",
-      "sender_log1p_seconds_since_out = 12.0208 (Lowers Risk, SHAP: -0.28)",
-      "receiver_log1p_out_count = 2.4849 (Pushes Risk HIGHER, SHAP: +0.23)",
+      "log1p_amount = 1.4702 (Pushes Risk HIGHER, SHAP: +4.91)",
+      "pair_first_seen_flag = 0.0 (Pushes Risk HIGHER, SHAP: +2.28)",
+      "pair_log1p_repeat_cnt_72h = 1.0986 (Pushes Risk HIGHER, SHAP: +0.26)",
       "GNN detected structural link to 4 prior suspicious counterparty transfers"
     ],
     "tree_shap_explanation": {
-      "base_value": -2.2692,
-      "predicted_probability": 0.9828,
+      "base_value": -2.2758,
+      "predicted_probability": 0.9978,
       "top_features": [
         {
           "feature": "log1p_amount",
-          "feature_value": 2.71,
-          "shap_attribution": 6.336,
+          "feature_value": 1.4702,
+          "shap_attribution": 4.9081,
           "direction": "Pushes Risk HIGHER"
         },
         {
-          "feature": "sender_log1p_seconds_since_out",
-          "feature_value": 12.0208,
-          "shap_attribution": -0.2763,
-          "direction": "Lowers Risk"
-        },
-        {
-          "feature": "receiver_log1p_out_count",
-          "feature_value": 2.4849,
-          "shap_attribution": 0.2312,
+          "feature": "pair_first_seen_flag",
+          "feature_value": 0.0,
+          "shap_attribution": 2.2795,
           "direction": "Pushes Risk HIGHER"
         },
         {
-          "feature": "receiver_log1p_in_count",
-          "feature_value": 2.3979,
-          "shap_attribution": 0.225,
-          "direction": "Pushes Risk HIGHER"
-        },
-        {
-          "feature": "sender_log1p_out_count",
+          "feature": "pair_log1p_repeat_cnt_72h",
           "feature_value": 1.0986,
-          "shap_attribution": -0.1839,
-          "direction": "Lowers Risk"
+          "shap_attribution": 0.2554,
+          "direction": "Pushes Risk HIGHER"
+        },
+        {
+          "feature": "receiver_log1p_out_cnt_24h",
+          "feature_value": 2.0794,
+          "shap_attribution": 0.2252,
+          "direction": "Pushes Risk HIGHER"
+        },
+        {
+          "feature": "sender_log1p_out_amount_24h",
+          "feature_value": 2.0931,
+          "shap_attribution": 0.189,
+          "direction": "Pushes Risk HIGHER"
         }
       ]
     },
     "gnn_influential_subgraph": [
       {
-        "prior_transaction_id": 171651,
-        "source_upi": "acc_11905@oksbi",
-        "target_upi": "acc_17800@paytm",
-        "amount": 301.14,
-        "timestamp_seconds": 1725754920,
-        "pattern_role": "Inflow to Sender",
-        "gnn_importance_weight": 0.9621
-      },
-      {
-        "prior_transaction_id": 159945,
-        "source_upi": "acc_17313@icici",
-        "target_upi": "acc_08676@okhdfcbank",
-        "amount": 170.83,
-        "timestamp_seconds": 1725682942,
+        "prior_transaction_id": 206709,
+        "source_upi": "acc_11839@oksbi",
+        "target_upi": "acc_19773@icici",
+        "amount": 325.89,
+        "timestamp_seconds": 1725996906,
         "pattern_role": "Rapid Inflow to Beneficiary",
-        "gnn_importance_weight": 0.3657
+        "gnn_importance_weight": 0.3351
       },
       {
-        "prior_transaction_id": 168494,
-        "source_upi": "acc_18273@icici",
-        "target_upi": "acc_08676@okhdfcbank",
-        "amount": 195.3,
-        "timestamp_seconds": 1725734360,
+        "prior_transaction_id": 211331,
+        "source_upi": "acc_19088@okaxis",
+        "target_upi": "acc_19773@icici",
+        "amount": 3.49,
+        "timestamp_seconds": 1726036950,
         "pattern_role": "Rapid Inflow to Beneficiary",
-        "gnn_importance_weight": 0.3648
+        "gnn_importance_weight": 0.335
       },
       {
-        "prior_transaction_id": 177577,
-        "source_upi": "acc_17313@icici",
-        "target_upi": "acc_17800@paytm",
-        "amount": 170.83,
-        "timestamp_seconds": 1725796766,
+        "prior_transaction_id": 211328,
+        "source_upi": "acc_19088@okaxis",
+        "target_upi": "acc_19773@icici",
+        "amount": 3.62,
+        "timestamp_seconds": 1726035503,
+        "pattern_role": "Rapid Inflow to Beneficiary",
+        "gnn_importance_weight": 0.335
+      },
+      {
+        "prior_transaction_id": 209306,
+        "source_upi": "acc_19292@okaxis",
+        "target_upi": "acc_19088@okaxis",
+        "amount": 136.89,
+        "timestamp_seconds": 1726013360,
         "pattern_role": "Inflow to Sender",
-        "gnn_importance_weight": 0.3457
+        "gnn_importance_weight": 0.3347
       }
     ],
     "supporting_transaction_ids": [
-      171651,
-      159945,
-      168494,
-      177577
+      206709,
+      211331,
+      211328,
+      209306
     ],
     "disclaimer": "AI model explanation generated for investigative assistance. Does not constitute legal proof of financial misconduct."
   },
   {
-    "transaction_id": 179931,
-    "prediction_time": "2026-11-04T18:45:07.609096+00:00",
-    "graph_cutoff_timestamp": 1725804533,
-    "sender_upi": "acc_17995@oksbi",
-    "receiver_upi": "acc_09872@okaxis",
-    "amount": 3.01,
-    "risk_score": 0.9865,
+    "transaction_id": 197749,
+    "prediction_time": "2026-11-05T13:47:05.206511+00:00",
+    "graph_cutoff_timestamp": 1725925884,
+    "sender_upi": "acc_18024@okhdfcbank",
+    "receiver_upi": "acc_09987@icici",
+    "amount": 3.7,
+    "risk_score": 0.9978,
     "risk_level": "HIGH",
     "recommended_action": "Freeze account and escalate to FIU-IND compliance",
     "main_reasons": [
-      "log1p_amount = 1.3888 (Pushes Risk HIGHER, SHAP: +6.03)",
-      "receiver_log1p_in_count = 3.6109 (Pushes Risk HIGHER, SHAP: +0.55)",
-      "sender_log1p_out_count = 1.7918 (Pushes Risk HIGHER, SHAP: +0.23)",
+      "log1p_amount = 1.5476 (Pushes Risk HIGHER, SHAP: +4.27)",
+      "pair_first_seen_flag = 0.0 (Pushes Risk HIGHER, SHAP: +2.07)",
+      "sender_log1p_out_cnt_72h = 2.3979 (Pushes Risk HIGHER, SHAP: +0.40)",
       "GNN detected structural link to 4 prior suspicious counterparty transfers"
     ],
     "tree_shap_explanation": {
-      "base_value": -2.2692,
-      "predicted_probability": 0.9865,
+      "base_value": -2.2758,
+      "predicted_probability": 0.9978,
       "top_features": [
         {
           "feature": "log1p_amount",
-          "feature_value": 1.3888,
-          "shap_attribution": 6.0318,
+          "feature_value": 1.5476,
+          "shap_attribution": 4.2738,
           "direction": "Pushes Risk HIGHER"
         },
         {
-          "feature": "receiver_log1p_in_count",
-          "feature_value": 3.6109,
-          "shap_attribution": 0.5505,
+          "feature": "pair_first_seen_flag",
+          "feature_value": 0.0,
+          "shap_attribution": 2.0717,
           "direction": "Pushes Risk HIGHER"
         },
         {
-          "feature": "sender_log1p_out_count",
-          "feature_value": 1.7918,
-          "shap_attribution": 0.2334,
+          "feature": "sender_log1p_out_cnt_72h",
+          "feature_value": 2.3979,
+          "shap_attribution": 0.3975,
           "direction": "Pushes Risk HIGHER"
         },
         {
-          "feature": "receiver_log1p_seconds_since_out",
-          "feature_value": 12.993,
-          "shap_attribution": -0.2038,
-          "direction": "Lowers Risk"
+          "feature": "sender_log1p_out_cnt_24h",
+          "feature_value": 2.0794,
+          "shap_attribution": 0.3519,
+          "direction": "Pushes Risk HIGHER"
         },
         {
-          "feature": "receiver_log1p_seconds_since_in",
-          "feature_value": 11.4209,
-          "shap_attribution": -0.118,
-          "direction": "Lowers Risk"
+          "feature": "receiver_log1p_out_cnt_24h",
+          "feature_value": 2.5649,
+          "shap_attribution": 0.3138,
+          "direction": "Pushes Risk HIGHER"
         }
       ]
     },
     "gnn_influential_subgraph": [
       {
-        "prior_transaction_id": 157244,
-        "source_upi": "acc_12589@oksbi",
-        "target_upi": "acc_17995@oksbi",
-        "amount": 292.17,
-        "timestamp_seconds": 1725667528,
-        "pattern_role": "Inflow to Sender",
-        "gnn_importance_weight": 0.9646
+        "prior_transaction_id": 196317,
+        "source_upi": "acc_09987@icici",
+        "target_upi": "acc_12961@oksbi",
+        "amount": 235.83,
+        "timestamp_seconds": 1725915756,
+        "pattern_role": "Layering Outflow from Beneficiary",
+        "gnn_importance_weight": 0.3345
       },
       {
-        "prior_transaction_id": 151106,
-        "source_upi": "acc_13681@oksbi",
-        "target_upi": "acc_09872@okaxis",
-        "amount": 341.1,
-        "timestamp_seconds": 1725633037,
-        "pattern_role": "Rapid Inflow to Beneficiary",
-        "gnn_importance_weight": 0.9635
+        "prior_transaction_id": 197336,
+        "source_upi": "acc_09987@icici",
+        "target_upi": "acc_08354@okaxis",
+        "amount": 235.83,
+        "timestamp_seconds": 1725922371,
+        "pattern_role": "Layering Outflow from Beneficiary",
+        "gnn_importance_weight": 0.3345
       },
       {
-        "prior_transaction_id": 151703,
-        "source_upi": "acc_02953@oksbi",
-        "target_upi": "acc_17995@oksbi",
-        "amount": 581.71,
-        "timestamp_seconds": 1725640477,
-        "pattern_role": "Inflow to Sender",
-        "gnn_importance_weight": 0.9634
+        "prior_transaction_id": 194169,
+        "source_upi": "acc_09987@icici",
+        "target_upi": "acc_12443@upi",
+        "amount": 235.83,
+        "timestamp_seconds": 1725903380,
+        "pattern_role": "Layering Outflow from Beneficiary",
+        "gnn_importance_weight": 0.3345
       },
       {
-        "prior_transaction_id": 144452,
-        "source_upi": "acc_06660@okhdfcbank",
-        "target_upi": "acc_09872@okaxis",
-        "amount": 296.36,
-        "timestamp_seconds": 1725595585,
-        "pattern_role": "Rapid Inflow to Beneficiary",
-        "gnn_importance_weight": 0.9626
+        "prior_transaction_id": 195238,
+        "source_upi": "acc_09987@icici",
+        "target_upi": "acc_09376@paytm",
+        "amount": 235.83,
+        "timestamp_seconds": 1725906426,
+        "pattern_role": "Layering Outflow from Beneficiary",
+        "gnn_importance_weight": 0.3345
       }
     ],
     "supporting_transaction_ids": [
-      157244,
-      151106,
-      151703,
-      144452
+      196317,
+      197336,
+      194169,
+      195238
     ],
     "disclaimer": "AI model explanation generated for investigative assistance. Does not constitute legal proof of financial misconduct."
   },
   {
-    "transaction_id": 100984,
-    "prediction_time": "2026-11-04T18:45:07.610645+00:00",
-    "graph_cutoff_timestamp": 1725239427,
-    "sender_upi": "acc_03144@okhdfcbank",
-    "receiver_upi": "acc_19184@okaxis",
-    "amount": 487.98,
-    "risk_score": 0.0439,
+    "transaction_id": 188938,
+    "prediction_time": "2026-11-05T13:47:05.666534+00:00",
+    "graph_cutoff_timestamp": 1725865441,
+    "sender_upi": "acc_17085@icici",
+    "receiver_upi": "acc_17143@oksbi",
+    "amount": 508.67,
+    "risk_score": 0.0521,
     "risk_level": "LOW",
     "recommended_action": "Permit standard clearing",
     "main_reasons": [
-      "receiver_log1p_in_count = 0.0 (Lowers Risk, SHAP: -0.62)",
-      "sender_log1p_out_count = 0.0 (Lowers Risk, SHAP: -0.47)",
-      "receiver_log1p_unique_senders = 0.0 (Pushes Risk HIGHER, SHAP: +0.33)"
+      "receiver_log1p_in_cnt_72h = 1.0986 (Lowers Risk, SHAP: -0.50)",
+      "receiver_log1p_unique_senders_72h = 1.0986 (Pushes Risk HIGHER, SHAP: +0.25)",
+      "log1p_amount = 6.2338 (Lowers Risk, SHAP: -0.21)",
+      "GNN detected structural link to 4 prior suspicious counterparty transfers"
     ],
     "tree_shap_explanation": {
-      "base_value": -2.2692,
-      "predicted_probability": 0.0439,
+      "base_value": -2.2758,
+      "predicted_probability": 0.0521,
       "top_features": [
         {
-          "feature": "receiver_log1p_in_count",
-          "feature_value": 0.0,
-          "shap_attribution": -0.6211,
+          "feature": "receiver_log1p_in_cnt_72h",
+          "feature_value": 1.0986,
+          "shap_attribution": -0.4971,
           "direction": "Lowers Risk"
         },
         {
-          "feature": "sender_log1p_out_count",
-          "feature_value": 0.0,
-          "shap_attribution": -0.466,
-          "direction": "Lowers Risk"
-        },
-        {
-          "feature": "receiver_log1p_unique_senders",
-          "feature_value": 0.0,
-          "shap_attribution": 0.3286,
+          "feature": "receiver_log1p_unique_senders_72h",
+          "feature_value": 1.0986,
+          "shap_attribution": 0.2453,
           "direction": "Pushes Risk HIGHER"
         },
         {
           "feature": "log1p_amount",
-          "feature_value": 6.1923,
-          "shap_attribution": -0.2479,
+          "feature_value": 6.2338,
+          "shap_attribution": -0.2108,
           "direction": "Lowers Risk"
         },
         {
-          "feature": "sender_log1p_seconds_since_out",
+          "feature": "receiver_log1p_seconds_since_out",
+          "feature_value": 12.1021,
+          "shap_attribution": -0.2032,
+          "direction": "Lowers Risk"
+        },
+        {
+          "feature": "receiver_log1p_in_cnt_24h",
           "feature_value": 0.0,
-          "shap_attribution": 0.1789,
-          "direction": "Pushes Risk HIGHER"
+          "shap_attribution": -0.1815,
+          "direction": "Lowers Risk"
         }
       ]
     },
-    "gnn_influential_subgraph": [],
-    "supporting_transaction_ids": [],
+    "gnn_influential_subgraph": [
+      {
+        "prior_transaction_id": 173437,
+        "source_upi": "acc_02433@icici",
+        "target_upi": "acc_17143@oksbi",
+        "amount": 203.57,
+        "timestamp_seconds": 1725769985,
+        "pattern_role": "Rapid Inflow to Beneficiary",
+        "gnn_importance_weight": 0.3374
+      },
+      {
+        "prior_transaction_id": 162975,
+        "source_upi": "acc_06710@okaxis",
+        "target_upi": "acc_17143@oksbi",
+        "amount": 239.08,
+        "timestamp_seconds": 1725705670,
+        "pattern_role": "Rapid Inflow to Beneficiary",
+        "gnn_importance_weight": 0.3373
+      },
+      {
+        "prior_transaction_id": 133060,
+        "source_upi": "acc_11908@paytm",
+        "target_upi": "acc_17143@oksbi",
+        "amount": 204.71,
+        "timestamp_seconds": 1725536194,
+        "pattern_role": "Rapid Inflow to Beneficiary",
+        "gnn_importance_weight": 0.3372
+      },
+      {
+        "prior_transaction_id": 187836,
+        "source_upi": "acc_17085@icici",
+        "target_upi": "acc_09159@icici",
+        "amount": 508.67,
+        "timestamp_seconds": 1725860401,
+        "pattern_role": "Outflow from Sender",
+        "gnn_importance_weight": 0.3345
+      }
+    ],
+    "supporting_transaction_ids": [
+      173437,
+      162975,
+      133060,
+      187836
+    ],
     "disclaimer": "AI model explanation generated for investigative assistance. Does not constitute legal proof of financial misconduct."
   }
 ]

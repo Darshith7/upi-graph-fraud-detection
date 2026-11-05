@@ -1,0 +1,2 @@
+# Extra packages for the browser (end-to-end) test only
+playwright>=1.45

@@ -29,6 +29,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import hashlib
+import hmac
 import aiohttp
 from aiohttp import web
 import numpy as np
@@ -38,7 +39,8 @@ torch.set_num_threads(1)
 import xgboost as xgb
 
 from evaluate_amlsim_challenges import (
-    FEATURE_NAMES, TemporalGraphFeatureTracker, AMLSimGraphSAGE
+    FEATURE_NAMES, FEATURE_SETS, TemporalGraphFeatureTracker, AMLSimGraphSAGE, LiveGraphState,
+    ALERT_WINDOW, effective_alert_threshold
 )
 from explainability import TreeSHAPExplainer, GNNExplainer, generate_explanation_package
 from copilots import BankAnalystCopilot, ConsumerSafetyCopilot
@@ -50,7 +52,6 @@ class RealtimeScoringEngine:
     def __init__(self, models_dir: Path, challenges_dir: Path):
         self.models_dir = Path(models_dir)
         self.challenges_dir = Path(challenges_dir)
-        self.tracker = TemporalGraphFeatureTracker()
         self.latencies_ms = deque(maxlen=10_000)
         self.recent_scored = deque(maxlen=100)
         self.processed_tx_cache: Dict[int, Dict[str, Any]] = {}
@@ -58,35 +59,48 @@ class RealtimeScoringEngine:
         self.total_scored = 0
         self.total_alerts = 0
 
+        # Load GraphSAGE checkpoint first: it records which feature set the models were trained on
+        gnn_ckpt = torch.load(self.models_dir / "graphsage_amlsim.pt", weights_only=False)
+        self.feature_set = gnn_ckpt.get("feature_set", "cumulative")
+        self.feature_names = list(gnn_ckpt.get("feature_names", FEATURE_SETS[self.feature_set]))
+        self.tracker = TemporalGraphFeatureTracker(feature_set=self.feature_set)
+
         # Load XGBoost model
         self.bst = xgb.Booster()
         self.bst.load_model(str(self.models_dir / "xgboost_amlsim.ubj"))
         self.shap_explainer = TreeSHAPExplainer(
-            str(self.models_dir / "xgboost_amlsim.ubj"), FEATURE_NAMES
+            str(self.models_dir / "xgboost_amlsim.ubj"), self.feature_names
         )
 
         # Load GraphSAGE model, graph topology, and validation calibration
-        gnn_ckpt = torch.load(self.models_dir / "graphsage_amlsim.pt", weights_only=False)
-        self.gnn_model = AMLSimGraphSAGE(in_features=len(FEATURE_NAMES), hidden_dim=32, out_dim=1)
+        self.gnn_model = AMLSimGraphSAGE(in_features=len(self.feature_names), hidden_dim=32, out_dim=1)
         self.gnn_model.load_state_dict(gnn_ckpt["state_dict"])
         self.gnn_model.eval()
-        self.node_x = gnn_ckpt["node_x"]
-        self.edge_index = gnn_ckpt["edge_index"]
-        self.node2idx = gnn_ckpt["node2idx"]
-        self.unknown_node_idx = gnn_ckpt.get("unknown_node_idx", len(self.node2idx))
-        self.gnn_explainer = GNNExplainer(self.gnn_model, FEATURE_NAMES, seed=42)
+        # Causal graph state (running-mean node features + past-only edges) - the same class the
+        # model was trained and evaluated with, so serving matches training.
+        self.base_graph = LiveGraphState.from_checkpoint(gnn_ckpt)
+        self.base_node2idx = dict(gnn_ckpt["node2idx"])
+        self.unknown_node_idx = gnn_ckpt.get("unknown_node_idx", len(self.base_node2idx))
+        self.gnn_explainer = GNNExplainer(self.gnn_model, self.feature_names, seed=42)
 
-        # Dynamic live temporal graph state for GraphSAGE
-        self.dynamic_node_x = self.node_x.clone()
-        self.dynamic_edge_src = self.edge_index[0].tolist()
-        self.dynamic_edge_dst = self.edge_index[1].tolist()
-        self.dynamic_edge_index = self.edge_index.clone()
+        # Dynamic live temporal graph state for GraphSAGE. Accounts never seen in training get
+        # their OWN node (allocated on first sight) instead of sharing one "unknown" embedding.
+        self.graph = self.base_graph.clone()
+        self.node2idx = dict(self.base_node2idx)
+        self.max_runtime_nodes = 100_000   # cap on accounts allocated at runtime
 
         # Validation-calibrated parameters
         calib = gnn_ckpt.get("calibration", {})
         self.w_xgb = float(calib.get("best_w_xgb", 0.75))
         self.w_gnn = float(calib.get("best_w_gnn", 0.25))
         self.alert_threshold = float(calib.get("calibrated_threshold", 0.4388))
+        # Alert budget: alert only if the score clears the validated static cutoff AND sits in the
+        # top `alert_budget` of recent scores (scores drift upward as cumulative features grow).
+        self.model_version = (f"Deployed Blend ({self.w_xgb:.2f} * XGBoost + {self.w_gnn:.2f} * GraphSAGE-AMLSim, "
+                              f"{self.feature_set} features)")
+        self.alert_budget = float(calib.get("val_alert_budget", 0.05))
+        self.val_score_reference = list(calib.get("val_score_reference", []))
+        self.recent_blend_scores = deque(self.val_score_reference, maxlen=ALERT_WINDOW)
 
         # Cache scenario streams
         self.scenarios = {
@@ -105,6 +119,16 @@ class RealtimeScoringEngine:
                 for row in df_sc.itertuples(index=False):
                     self.handle_to_id[str(row.sender_upi).strip().lower()] = int(row.sourceNodeId)
                     self.handle_to_id[str(row.receiver_upi).strip().lower()] = int(row.targetNodeId)
+
+        # Verified-merchant registry (out-of-band list; NOT inferred from the handle text)
+        self.verified_merchants = set()
+        registry_path = Path("data/verified_merchants.json")
+        if registry_path.is_file():
+            try:
+                reg = json.loads(registry_path.read_text(encoding="utf-8"))
+                self.verified_merchants = {str(h).strip().lower() for h in reg.get("verified_merchants", [])}
+            except Exception as exc:
+                print(f"Warning: could not read {registry_path}: {exc}")
 
         self.active_scenario_name = "baseline"
         self.stream_df = None
@@ -130,21 +154,35 @@ class RealtimeScoringEngine:
             t_sec = int(row.timestamp_seconds)
             if has_saved_mask:
                 if not bool(getattr(row, "history_suppressed", 0)):
-                    self.tracker.update(s_node, d_node, t_sec, force=True)
+                    self.tracker.update(s_node, d_node, t_sec, force=True, amount=float(row.amount))
             else:
-                self.tracker.update(s_node, d_node, t_sec)
+                self.tracker.update(s_node, d_node, t_sec, amount=float(row.amount))
+
+        # Reference payer for recipient-safety advisories: the median-activity established account and
+        # the median amount of the pre-warmed history (so advisories are model-derived, not hard-coded).
+        counts = pd.concat([history_df["sender_upi"], history_df["receiver_upi"]]).value_counts()
+        eligible = counts[counts >= 10]
+        self.reference_sender_upi = str(eligible.index[len(eligible) // 2]) if len(eligible) else None
+        self.reference_amount = float(history_df["amount"].median())
 
         self.stream_df = full_df[full_df["timestamp_step"] > 90].reset_index(drop=True)
         self.stream_pointer = 0
         print(f"Loaded scenario '{scenario_name}': {len(history_df):,} history events pre-warmed; {len(self.stream_df):,} unseen test events ready for live stream.")
 
+    @property
+    def dynamic_node_x(self) -> torch.Tensor:
+        return self.graph.node_x()
+
+    @property
+    def dynamic_edge_index(self) -> torch.Tensor:
+        return self.graph.edge_index()
+
     def reset_state(self):
         """Reset online tracker, dynamic graph state, and transaction caches (Bug P1-2 fix)."""
         self.tracker.reset()
-        self.dynamic_node_x = self.node_x.clone()
-        self.dynamic_edge_src = self.edge_index[0].tolist()
-        self.dynamic_edge_dst = self.edge_index[1].tolist()
-        self.dynamic_edge_index = self.edge_index.clone()
+        self.graph = self.base_graph.clone()
+        self.node2idx = dict(self.base_node2idx)
+        self.recent_blend_scores = deque(self.val_score_reference, maxlen=ALERT_WINDOW)
         self.latencies_ms.clear()
         self.recent_scored.clear()
         self.processed_tx_cache.clear()
@@ -152,6 +190,29 @@ class RealtimeScoringEngine:
         self.total_scored = 0
         self.total_alerts = 0
         self.stream_pointer = 0
+
+    def recipient_risk(self, upi_handle: str) -> float:
+        """Model-derived risk of paying `upi_handle`: score a typical payment (reference payer, median
+        amount) to it with the full XGBoost+GraphSAGE blend, as a dry run (no state change).
+        Replaces the hard-coded stand-in scores the consumer copilot used to return."""
+        if not self.reference_sender_upi or str(upi_handle).strip() == self.reference_sender_upi:
+            return 0.0
+        if self.last_seen_timestamp > 0:
+            ts = self.last_seen_timestamp
+        elif self.stream_df is not None and len(self.stream_df):
+            ts = int(self.stream_df["timestamp_seconds"].iloc[min(self.stream_pointer, len(self.stream_df) - 1)])
+        else:
+            ts = int(time.time())
+        res = self.score_transaction({
+            "sender_upi": self.reference_sender_upi, "receiver_upi": str(upi_handle).strip(),
+            "amount": self.reference_amount, "timestamp": ts, "dry_run": True,
+        })
+        return float(res.get("risk_score", 0.0))
+
+    def is_verified_merchant(self, upi_handle: str) -> bool:
+        """True only for handles in the verified-merchant registry. A handle that merely CONTAINS
+        'store' / 'merchant' / 'retail_hub' earns no exemption (anyone can pick such a name)."""
+        return str(upi_handle).strip().lower() in self.verified_merchants
 
     def parse_node_id(self, upi_handle: str) -> int:
         """Deterministically map UPI handle to node ID preserving VPA domain (Bug P1-1 fix)."""
@@ -167,14 +228,25 @@ class RealtimeScoringEngine:
         """Score incoming transaction with past-only history, then update graph."""
         start_t = time.perf_counter()
 
+        # dry_run=true scores against current state WITHOUT committing the transaction
+        # (no history/graph update, no cache entry, no counters), so "what would this score?"
+        # checks don't change later scores.
+        dry_run = bool(tx_data.get("dry_run", False))
+
         raw_id = tx_data.get("transaction_id")
         try:
-            tx_id = int(raw_id) if raw_id is not None else int(time.time() * 1000) % 1_000_000
+            tx_id = int(raw_id) if raw_id is not None else None
         except (ValueError, TypeError):
-            tx_id = int(time.time() * 1000) % 1_000_000
+            tx_id = None
+        if tx_id is None:
+            # Microsecond timestamp: no wrap-around, so a generated ID can't collide with an
+            # old cached result (the previous `% 1_000_000` repeated every ~16.7 minutes).
+            tx_id = time.time_ns() // 1000
+            while tx_id in self.processed_tx_cache:
+                tx_id += 1
 
         # Check transaction idempotency (Bug P1-2 fix)
-        if tx_id in self.processed_tx_cache:
+        if not dry_run and tx_id in self.processed_tx_cache:
             cached_res = self.processed_tx_cache[tx_id].copy()
             cached_res["cached_replay"] = True
             return cached_res
@@ -210,7 +282,7 @@ class RealtimeScoringEngine:
         is_out_of_order = False
         if self.last_seen_timestamp > 0 and timestamp < self.last_seen_timestamp:
             is_out_of_order = True
-        else:
+        elif not dry_run:
             self.last_seen_timestamp = max(self.last_seen_timestamp, timestamp)
 
         graph_cutoff = timestamp
@@ -225,19 +297,39 @@ class RealtimeScoringEngine:
         )
 
         # 2. XGBoost prediction & TreeSHAP
-        dmatrix = xgb.DMatrix(np.atleast_2d(features), feature_names=FEATURE_NAMES, nthread=1)
+        dmatrix = xgb.DMatrix(np.atleast_2d(features), feature_names=self.feature_names, nthread=1)
         xgb_score = float(self.bst.predict(dmatrix)[0])
         shap_res = self.shap_explainer.explain(features, top_k=3)
 
         # 3. Live GraphSAGE prediction on current evolving graph (Bug P1-3 fix)
-        s_idx = self.node2idx.get(s_node, self.unknown_node_idx)
-        d_idx = self.node2idx.get(d_node, self.unknown_node_idx)
+        new_nodes: Dict[int, int] = {}   # unseen accounts -> freshly allocated node index
+
+        def resolve(node: int) -> int:
+            idx = self.node2idx.get(node)
+            if idx is None:
+                idx = new_nodes.get(node)
+                if idx is None:
+                    runtime_nodes = self.graph.num_nodes - self.base_graph.num_nodes + len(new_nodes)
+                    if runtime_nodes >= self.max_runtime_nodes:
+                        # Cap reached (unauthenticated callers could otherwise grow memory without
+                        # bound): further unseen accounts share the reserved "unknown" slot.
+                        return self.unknown_node_idx
+                    idx = self.graph.num_nodes + len(new_nodes)
+                    new_nodes[node] = idx
+            return idx
+
+        s_idx = resolve(s_node)
+        d_idx = resolve(d_node)
         tx_feat = torch.from_numpy(features).float().unsqueeze(0)
+        # Run GraphSAGE on the sender/receiver 2-hop in-neighbourhood only. This is mathematically
+        # identical to the full-graph pass (mean aggregation, 2 layers) but its cost no longer
+        # grows with the size of the whole graph. Unseen accounts have zero features / no edges.
+        sub_x, sub_ei, (s_loc, d_loc) = self.graph.khop_inputs([s_idx, d_idx], hops=2)
         with torch.no_grad():
-            s_t = torch.tensor([s_idx], dtype=torch.long)
-            d_t = torch.tensor([d_idx], dtype=torch.long)
+            s_t = torch.tensor([s_loc], dtype=torch.long)
+            d_t = torch.tensor([d_loc], dtype=torch.long)
             gnn_logit = self.gnn_model(
-                self.dynamic_node_x, self.dynamic_edge_index,
+                sub_x, sub_ei,
                 tx_feat, s_t, d_t
             )
             gnn_score = float(torch.sigmoid(gnn_logit).item())
@@ -245,8 +337,11 @@ class RealtimeScoringEngine:
         # Blended risk score (Validation-tuned: w_xgb * XGBoost + w_gnn * GraphSAGE)
         risk_score = round(self.w_xgb * xgb_score + self.w_gnn * gnn_score, 4)
 
-        # Production alert threshold policy (Validation-calibrated)
-        if risk_score >= self.alert_threshold:
+        # Production alert policy: validated static cutoff AND rolling alert budget
+        effective_threshold = effective_alert_threshold(
+            self.recent_blend_scores, self.alert_threshold, self.alert_budget
+        )
+        if risk_score >= effective_threshold:
             risk_level = "HIGH"
             alert = True
         elif risk_score >= (self.alert_threshold * 0.5):
@@ -288,18 +383,20 @@ class RealtimeScoringEngine:
             reasons.append(f"Network flow: Receiver has accumulated {self.tracker.in_counts[d_node]} inflows with pass-through forwarding.")
 
         # 4. Commit transaction to tracker and live graph strictly AFTER scoring (no leakage)
-        self.tracker.update(s_node, d_node, timestamp)
-        self.dynamic_edge_src.append(s_idx)
-        self.dynamic_edge_dst.append(d_idx)
-        self.dynamic_edge_index = torch.tensor([self.dynamic_edge_src, self.dynamic_edge_dst], dtype=torch.long)
-        self.dynamic_node_x[s_idx] += torch.from_numpy(features) * 0.1
-        self.dynamic_node_x[d_idx] += torch.from_numpy(features) * 0.1
+        if not dry_run:
+            self.tracker.update(s_node, d_node, timestamp, amount=amount)
+            if new_nodes:
+                self.graph.ensure_nodes(self.graph.num_nodes + len(new_nodes))
+                self.node2idx.update(new_nodes)
+            self.graph.commit(torch.tensor([s_idx]), torch.tensor([d_idx]), torch.from_numpy(features).unsqueeze(0))
+            self.recent_blend_scores.append(risk_score)
 
         latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
-        self.latencies_ms.append(latency_ms)
-        self.total_scored += 1
-        if alert:
-            self.total_alerts += 1
+        if not dry_run:
+            self.latencies_ms.append(latency_ms)
+            self.total_scored += 1
+            if alert:
+                self.total_alerts += 1
 
         result = {
             "transaction_id": tx_id,
@@ -312,6 +409,8 @@ class RealtimeScoringEngine:
             "risk_score": risk_score,
             "risk_level": risk_level,
             "alert": alert,
+            "alert_threshold_used": round(effective_threshold, 4),
+            "model_version": self.model_version,
             "insufficient_history": insufficient_history,
             "xgb_score": round(xgb_score, 4),
             "gnn_score": round(gnn_score, 4),
@@ -322,6 +421,10 @@ class RealtimeScoringEngine:
             "supporting_transaction_ids": [e["prior_transaction_id"] for e in local_edges[:4]],
             "latency_ms": latency_ms
         }
+
+        if dry_run:
+            result["dry_run"] = True
+            return result
 
         # Cache result for idempotency (capped at 10,000 items)
         if len(self.processed_tx_cache) >= 10_000:
@@ -430,6 +533,9 @@ async def handle_stream_state(request: web.Request) -> web.Response:
         "alert_rate": round(ENGINE.total_alerts / max(1, ENGINE.total_scored), 4),
         "deployed_model": f"{ENGINE.w_xgb:.2f} * XGBoost + {ENGINE.w_gnn:.2f} * GraphSAGE",
         "deployed_alert_threshold": ENGINE.alert_threshold,
+        "alert_budget": ENGINE.alert_budget,
+        "effective_alert_threshold": round(effective_alert_threshold(
+            ENGINE.recent_blend_scores, ENGINE.alert_threshold, ENGINE.alert_budget), 4),
         "latency_stats": ENGINE.get_latency_stats(),
         "recent_transactions": list(ENGINE.recent_scored)[:20]
     })
@@ -453,6 +559,17 @@ async def handle_copilot_analyst(request: web.Request) -> web.Response:
                 if str(item.get("transaction_id")) == str(tx_id):
                     case_data = item
                     break
+        if case_data is None and tx_id and ENGINE.stream_df is not None:
+            hit = ENGINE.stream_df[ENGINE.stream_df["transaction_id"].astype(str) == str(tx_id)]
+            if len(hit):
+                r = hit.iloc[0]
+                case_data = ENGINE.score_transaction({
+                    "transaction_id": int(r["transaction_id"]), "sender_upi": str(r["sender_upi"]),
+                    "receiver_upi": str(r["receiver_upi"]), "amount": float(r["amount"]),
+                    "timestamp": int(r["timestamp_seconds"]), "dry_run": True,   # read-only: no state change
+                })
+        if case_data is None and tx_id and not data.get("sender_upi"):
+            return web.json_response({"error": f"Transaction {tx_id} was not found in the live stream or the replay data."}, status=404)
         if case_data is None:
             case_data = data
 
@@ -478,34 +595,23 @@ async def handle_copilot_consumer(request: web.Request) -> web.Response:
         out_cnt = ENGINE.tracker.out_counts[node_id]
         total_tx = in_cnt + out_cnt
 
-        is_retail = ("retail_hub" in upi_id.lower()) or ("merchant" in upi_id.lower()) or ("store" in upi_id.lower())
+        is_retail = ENGINE.is_verified_merchant(upi_id)
 
         # Check recent scored transactions for this recipient
         recent_scores = [item["risk_score"] for item in ENGINE.recent_scored if item.get("receiver_upi") == upi_id]
         if len(recent_scores) > 0:
             recent_score = float(max(recent_scores))
-        elif is_retail:
-            # Verified benign retail merchant with customer fan-in
-            recent_score = 0.04
-        elif total_tx == 0:
-            recent_score = 0.05
-        elif in_cnt >= 8 and out_cnt == 0:
-            # Pure fan-in collection mule (unverified non-merchant)
-            recent_score = 0.85
-        elif in_cnt >= 5 and out_cnt >= 2:
-            # Rapid pass-through layering mule
-            recent_score = 0.80
-        elif in_cnt >= 8:
-            recent_score = 0.65
         else:
-            recent_score = 0.08
+            # No recent scored payment to this recipient: ask the model (dry run, no state change)
+            recent_score = ENGINE.recipient_risk(upi_id)
 
         advisory = ConsumerSafetyCopilot.check_recipient_safety(
             recipient_upi=upi_id,
             recent_risk_score=recent_score,
             total_prior_events=total_tx,
             language=lang,
-            is_retail_hub=is_retail
+            is_retail_hub=is_retail,
+            alert_threshold=ENGINE.alert_threshold
         )
         return web.json_response(advisory)
     except Exception as e:
@@ -716,9 +822,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
               <th>Fraud Tx</th>
               <th>XGBoost AP</th>
               <th>GraphSAGE AP</th>
-              <th>XGB Recall @ 1%</th>
-              <th>GNN Recall @ 1%</th>
-              <th>Lookalike Hub FPs</th>
+              <th>Blend AP</th>
+              <th>Alert Policy Precision / Recall</th>
+              <th>Benign Hub Alerts</th>
             </tr>
           </thead>
           <tbody id="challenges-table-body">
@@ -733,14 +839,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
             Launderers intentionally alter amounts (micro-ticket sizes ₹115-₹485) and introduce randomized delays (+3 to +13 steps). Tests if detection fails when simple velocity heuristics are evaded.
           </p>
-          <div style="margin-top: 1rem; font-weight: 700; color: #f59e0b;">Result: AP drops ~28%; GNN retains structural links.</div>
+          <div style="margin-top: 1rem; font-weight: 700; color: #f59e0b;">Result: the weakest case. AP drops by roughly half and the graph component adds no significant gain over XGBoost (see table).</div>
         </div>
         <div class="card">
           <div class="card-title">2. Benign Lookalike Hubs</div>
           <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
             Legitimate high fan-in merchant QR hubs and high fan-out corporate salary accounts are injected. Tests if normal busy hubs trigger false alarms.
           </p>
-          <div style="margin-top: 1rem; font-weight: 700; color: #10b981;">Result: 0 Hub False Alarms; reciprocal neighbor aggregation filters benign hubs.</div>
+          <div style="margin-top: 1rem; font-weight: 700; color: #10b981;">Result: some benign hubs are still alerted (see table). Known merchants are protected only through the verified-merchant registry.</div>
         </div>
         <div class="card">
           <div class="card-title">3. Partial / Missing History</div>
@@ -1170,14 +1276,32 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       runConsumerCheck();
     }
 
+    // When the server requires UPI_API_KEY, attach it to every API call and ask for it on a 401.
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = async (url, opts = {}) => {
+      const withKey = (k) => { opts = Object.assign({}, opts, { headers: Object.assign({}, opts.headers, { 'X-API-Key': k }) }); };
+      const saved = sessionStorage.getItem('upi_api_key');
+      if (saved) withKey(saved);
+      let res = await _origFetch(url, opts);
+      if (res.status === 401) {
+        const k = window.prompt('This server requires an API key:');
+        if (k) { sessionStorage.setItem('upi_api_key', k); withKey(k); res = await _origFetch(url, opts); }
+      }
+      return res;
+    };
+
     async function loadChallengesTable() {
       const res = await fetch('/api/benchmark/summary');
       const data = await res.json();
       const tbody = document.getElementById('challenges-table-body');
-      if (!data.amlsim_challenges || Object.keys(data.amlsim_challenges).length === 0) return;
+      const scenarios = (data.amlsim_challenges || {}).scenarios;
+      if (!scenarios || Object.keys(scenarios).length === 0) return;
 
       tbody.innerHTML = '';
-      for (const [name, r] of Object.entries(data.amlsim_challenges)) {
+      for (const [name, r] of Object.entries(scenarios)) {
+        const pol = r.deployed_blend.deployed_alert_policy;
+        const hubs = r.lookalike_hub_events
+          ? `${pol.lookalike_hub_false_positives} / ${r.lookalike_hub_events}` : 'n/a';
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><strong>${name}</strong></td>
@@ -1185,9 +1309,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <td>${r.test_laundering.toLocaleString()}</td>
           <td>${r.xgboost.average_precision.toFixed(4)}</td>
           <td>${r.graphsage.average_precision.toFixed(4)}</td>
-          <td>${(r.xgboost.recall * 100).toFixed(2)}%</td>
-          <td>${(r.graphsage.recall * 100).toFixed(2)}%</td>
-          <td>${r.xgboost.lookalike_hub_false_positives} / ${r.graphsage.lookalike_hub_false_positives}</td>
+          <td>${r.deployed_blend.average_precision.toFixed(4)}</td>
+          <td>${(pol.precision * 100).toFixed(1)}% / ${(pol.recall * 100).toFixed(1)}%</td>
+          <td>${hubs}</td>
         `;
         tbody.appendChild(tr);
       }
@@ -1296,8 +1420,55 @@ async def handle_dashboard(request: web.Request) -> web.Response:
     return web.Response(text=DASHBOARD_HTML, content_type="text/html")
 
 
-def create_app() -> web.Application:
-    app = web.Application()
+class TokenBucketLimiter:
+    """Per-client token bucket (burst `burst`, refill `per_minute / 60` tokens per second)."""
+
+    def __init__(self, per_minute: float, burst: int, max_clients: int = 10_000):
+        self.rate = per_minute / 60.0
+        self.burst = float(burst)
+        self.max_clients = max_clients
+        self.state: Dict[str, List[float]] = {}   # client -> [tokens, last_monotonic]
+
+    def allow(self, client: str):
+        now = time.monotonic()
+        tokens, last = self.state.get(client, (self.burst, now))
+        tokens = min(self.burst, tokens + (now - last) * self.rate)
+        if tokens >= 1.0:
+            self.state[client] = [tokens - 1.0, now]
+            allowed, retry = True, 0
+        else:
+            self.state[client] = [tokens, now]
+            allowed, retry = False, int(math.ceil((1.0 - tokens) / self.rate)) if self.rate > 0 else 60
+        if len(self.state) > self.max_clients:        # bound memory: drop the oldest half
+            for k in sorted(self.state, key=lambda c: self.state[c][1])[: self.max_clients // 2]:
+                self.state.pop(k, None)
+        return allowed, retry
+
+
+def make_security_middleware(limiter: TokenBucketLimiter):
+    @web.middleware
+    async def security_middleware(request: web.Request, handler):
+        if request.path.startswith("/api/"):
+            ok, retry = limiter.allow(request.remote or "unknown")
+            if not ok:
+                return web.json_response({"error": "rate limit exceeded"}, status=429,
+                                         headers={"Retry-After": str(retry)})
+            required = os.environ.get("UPI_API_KEY", "")
+            if required:
+                supplied = request.headers.get("X-API-Key", "")
+                if not hmac.compare_digest(supplied.encode("utf-8"), required.encode("utf-8")):
+                    return web.json_response({"error": "unauthorized: missing or invalid X-API-Key"}, status=401)
+        return await handler(request)
+    return security_middleware
+
+
+def create_app(rate_limit_per_min: float = None, burst: int = None) -> web.Application:
+    per_min = float(rate_limit_per_min if rate_limit_per_min is not None else os.environ.get("UPI_RATE_LIMIT_PER_MIN", 600))
+    burst = int(burst if burst is not None else os.environ.get("UPI_RATE_LIMIT_BURST", 100))
+    app = web.Application(
+        middlewares=[make_security_middleware(TokenBucketLimiter(per_min, burst))],
+        client_max_size=256 * 1024,   # API payloads are tiny; refuse large bodies
+    )
     # REST API endpoints
     app.router.add_post("/api/score", handle_score)
     app.router.add_post("/api/stream/step", handle_stream_step)
@@ -1323,7 +1494,14 @@ def main():
     parser = argparse.ArgumentParser(description="Run UPI Fraud Detection API Service")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
     parser.add_argument("--host", default="127.0.0.1", help="Host interface")
+    parser.add_argument("--allow-insecure", action="store_true",
+                        help="allow binding a non-local interface WITHOUT an API key (not recommended)")
     args = parser.parse_args()
+
+    if args.host not in ("127.0.0.1", "localhost", "::1") and not os.environ.get("UPI_API_KEY") and not args.allow_insecure:
+        raise SystemExit("Refusing to listen on a non-local interface without authentication. "
+                         "Set the UPI_API_KEY environment variable (clients send it as X-API-Key) "
+                         "or pass --allow-insecure.")
 
     app = create_app()
     print(f"Starting UPI Fraud Detection Platform & REST API on http://{args.host}:{args.port}...")

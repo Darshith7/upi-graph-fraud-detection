@@ -2,7 +2,7 @@
 
 Verifies fixes for Bug Report 1:
 1. Feature extraction & online graph state management (past-only property).
-2. Dual model inference & Deployed Blend (0.55 * XGBoost + 0.45 * GraphSAGE).
+2. Dual model inference & validation-tuned Deployed Blend (weights read from the checkpoint).
 3. GNNExplainer attribution: optimizes mask on model forward pass with PyG hooks (P0-1).
 4. IEEE-CIS & BAF synthetic protocol demonstrations with validation-selected thresholds (P0-2).
 5. Comprehensive shared node mapping with valid indices for lookalike hubs (P0-3).
@@ -36,19 +36,21 @@ torch.set_num_threads(1)
 
 try:
     from src.evaluate_amlsim_challenges import (
-        FEATURE_NAMES, TemporalGraphFeatureTracker, AMLSimGraphSAGE, extract_scenario_features
+        FEATURE_NAMES, TemporalGraphFeatureTracker, AMLSimGraphSAGE, extract_scenario_features,
+        LiveGraphState, effective_alert_threshold, rolling_budget_alerts
     )
     from src.explainability import TreeSHAPExplainer, GNNExplainer, generate_explanation_package
     from src.copilots import BankAnalystCopilot, ConsumerSafetyCopilot
-    from src.scoring_service import ENGINE
+    from src.scoring_service import ENGINE, create_app
     import src.graphsage_trial as graphsage_trial
 except ImportError:
     from evaluate_amlsim_challenges import (
-        FEATURE_NAMES, TemporalGraphFeatureTracker, AMLSimGraphSAGE, extract_scenario_features
+        FEATURE_NAMES, TemporalGraphFeatureTracker, AMLSimGraphSAGE, extract_scenario_features,
+        LiveGraphState, effective_alert_threshold, rolling_budget_alerts
     )
     from explainability import TreeSHAPExplainer, GNNExplainer, generate_explanation_package
     from copilots import BankAnalystCopilot, ConsumerSafetyCopilot
-    from scoring_service import ENGINE
+    from scoring_service import ENGINE, create_app
     import graphsage_trial
 
 
@@ -56,16 +58,18 @@ def test_tracker_past_only_property():
     tracker = TemporalGraphFeatureTracker()
     feat_0, sparse_0 = tracker.extract_features(101, 102, 500.0, 1000)
     assert sparse_0 is True, "New nodes must flag insufficient history"
-    assert feat_0[1] == 0.0, "Initial out count must be 0 before update"
-    assert feat_0[4] == 0.0, "Initial in count must be 0 before update"
+    i_out = tracker.feature_names.index("sender_log1p_out_cnt_6h")
+    i_in = tracker.feature_names.index("receiver_log1p_in_cnt_6h")
+    assert feat_0[i_out] == 0.0, "Initial out count must be 0 before update"
+    assert feat_0[i_in] == 0.0, "Initial in count must be 0 before update"
 
     # Commit event strictly after scoring
-    tracker.update(101, 102, 1000)
+    tracker.update(101, 102, 1000, amount=500.0)
 
     # Scored at next timestamp
     feat_1, _ = tracker.extract_features(101, 102, 200.0, 1050)
-    assert feat_1[1] > 0.0, "Sender out count must be positive after update"
-    assert feat_1[4] > 0.0, "Receiver in count must be positive after update"
+    assert feat_1[i_out] > 0.0, "Sender out count must be positive after update"
+    assert feat_1[i_in] > 0.0, "Receiver in count must be positive after update"
     print("✓ test_tracker_past_only_property: PASSED")
 
 
@@ -266,9 +270,289 @@ def test_copilot_type_safety_and_collection_mule():
     print("✓ test_copilot_type_safety_and_collection_mule: PASSED")
 
 
+def test_consumer_advisory_uses_engine_alert_threshold():
+    """Scores the engine alerts on (>= alert_threshold) must never be shown to consumers as SAFE."""
+    thr = ENGINE.alert_threshold
+    just_above = thr + 0.01          # engine: HIGH alert (previously a hardcoded 0.50 cutoff said SAFE)
+    just_below = thr - 0.01
+    adv_hi = ConsumerSafetyCopilot.check_recipient_safety(
+        "acc@upi", recent_risk_score=just_above, total_prior_events=10, alert_threshold=thr)
+    adv_lo = ConsumerSafetyCopilot.check_recipient_safety(
+        "acc@upi", recent_risk_score=just_below, total_prior_events=10, alert_threshold=thr)
+    assert adv_hi["status"] == "HIGH_RISK" and adv_hi["safety_category"] == "WARNING", \
+        "Score at/above the engine alert threshold must produce a consumer WARNING"
+    assert adv_lo["status"] == "NORMAL", "Score below the alert threshold stays SAFE"
+    # Default (no explicit threshold) must match the deployed threshold too
+    adv_default = ConsumerSafetyCopilot.check_recipient_safety(
+        "acc@upi", recent_risk_score=0.46, total_prior_events=10)
+    assert adv_default["status"] == "HIGH_RISK", "Default threshold must match deployed 0.4388, not 0.50"
+    print("✓ test_consumer_advisory_uses_engine_alert_threshold: PASSED")
+
+
+def test_dry_run_and_generated_ids():
+    """dry_run must not change state; generated IDs must be unique (no 1,000,000-wrap collisions)."""
+    ENGINE.reset_state()
+    tx = {"sender_upi": "dry_a@upi", "receiver_upi": "dry_b@upi", "amount": 250.0, "timestamp": 1725804006}
+
+    before = (ENGINE.total_scored, len(ENGINE.recent_scored), ENGINE.graph.num_edges,
+              len(ENGINE.processed_tx_cache), ENGINE.last_seen_timestamp)
+    r1 = ENGINE.score_transaction({**tx, "dry_run": True})
+    r2 = ENGINE.score_transaction({**tx, "dry_run": True})
+    after = (ENGINE.total_scored, len(ENGINE.recent_scored), ENGINE.graph.num_edges,
+             len(ENGINE.processed_tx_cache), ENGINE.last_seen_timestamp)
+    assert before == after, "dry_run must not mutate engine state"
+    assert r1["dry_run"] is True and r1["risk_score"] == r2["risk_score"], \
+        "Repeated dry_run scores must be identical (state unchanged)"
+
+    committed = ENGINE.score_transaction(dict(tx))
+    assert committed["risk_score"] == r1["risk_score"], "Committed score equals the preceding dry_run score"
+    assert ENGINE.total_scored == before[0] + 1
+
+    ids = {ENGINE.score_transaction({**tx, "sender_upi": f"id_{i}@upi"})["transaction_id"] for i in range(20)}
+    assert len(ids) == 20, "Generated transaction IDs must be unique"
+    assert all(i > 1_000_000 for i in ids), "Generated IDs must not wrap at 1,000,000"
+    print("✓ test_dry_run_and_generated_ids: PASSED")
+
+
+def test_graph_state_is_bounded_and_causal():
+    """Node features are a running MEAN (bounded); committing happens only after scoring."""
+    st = LiveGraphState(num_nodes=4, feat_dim=3)
+    f = torch.tensor([[2.0, 4.0, 6.0]])
+    for _ in range(1000):
+        st.commit(torch.tensor([0]), torch.tensor([1]), f)
+    x = st.node_x()
+    assert torch.allclose(x[0], f[0]) and torch.allclose(x[1], f[0]), \
+        "Node features must stay the MEAN of incident features (old code summed them without bound)"
+    assert float(x[2].abs().sum()) == 0.0, "Untouched nodes keep zero features"
+    assert st.num_edges == 1000
+
+    clone = st.clone()
+    clone.commit(torch.tensor([2]), torch.tensor([3]), f)
+    assert st.num_edges == 1000 and clone.num_edges == 1001, "clone() must not share state"
+
+    # The live engine must not exceed the feature range however often an account transacts
+    ENGINE.reset_state()
+    for i in range(30):
+        ENGINE.score_transaction({"sender_upi": "bound_a@upi", "receiver_upi": "bound_b@upi",
+                                  "amount": 250.0, "timestamp": 1725804006 + i * 3600})
+    assert float(ENGINE.graph.node_x().abs().max()) < 20.0, "Live node features must stay bounded"
+    print("✓ test_graph_state_is_bounded_and_causal: PASSED")
+
+
+def test_unseen_accounts_get_own_graph_node():
+    """Unseen accounts must not share one 'unknown' embedding; dry_run must not allocate nodes."""
+    ENGINE.reset_state()
+    n0 = ENGINE.graph.num_nodes
+    ENGINE.score_transaction({"sender_upi": "dry_x@upi", "receiver_upi": "dry_y@upi", "amount": 100.0,
+                              "timestamp": 1725804006, "dry_run": True})
+    assert ENGINE.graph.num_nodes == n0, "dry_run must not allocate graph nodes"
+
+    ENGINE.score_transaction({"sender_upi": "new_a@upi", "receiver_upi": "new_b@upi", "amount": 500.0, "timestamp": 1725804006})
+    ENGINE.score_transaction({"sender_upi": "new_c@upi", "receiver_upi": "new_d@upi", "amount": 500.0, "timestamp": 1725804007})
+    idxs = [ENGINE.node2idx[ENGINE.parse_node_id(h)] for h in ("new_a@upi", "new_b@upi", "new_c@upi", "new_d@upi")]
+    assert len(set(idxs)) == 4, "Each unseen account needs its own node index"
+    assert ENGINE.graph.num_nodes == n0 + 4
+    assert ENGINE.unknown_node_idx not in idxs, "Unseen accounts must not map to the shared unknown slot"
+
+    ENGINE.reset_state()
+    assert ENGINE.graph.num_nodes == n0, "reset_state must forget accounts allocated at runtime"
+
+    # Runtime allocation is capped so unauthenticated callers cannot grow memory without bound
+    old_cap, ENGINE.max_runtime_nodes = ENGINE.max_runtime_nodes, 2
+    try:
+        for i in range(5):
+            ENGINE.score_transaction({"sender_upi": f"cap_s{i}@upi", "receiver_upi": f"cap_r{i}@upi",
+                                      "amount": 100.0, "timestamp": 1725804006 + i})
+        assert ENGINE.graph.num_nodes <= n0 + 2, "Runtime node allocation must respect max_runtime_nodes"
+    finally:
+        ENGINE.max_runtime_nodes = old_cap
+        ENGINE.reset_state()
+    print("✓ test_unseen_accounts_get_own_graph_node: PASSED")
+
+
+def test_verified_merchant_registry_not_name_based():
+    """Merchant exemption comes from the registry; a handle just containing 'store' earns nothing."""
+    assert ENGINE.is_verified_merchant("dmart_retail_hub@okhdfcbank"), "Registry merchant must be verified"
+    for fake in ("mule_store@upi", "merchant_collect@upi", "retail_hub_fake@upi", "my_store@oksbi"):
+        assert not ENGINE.is_verified_merchant(fake), f"{fake} must NOT be treated as a verified merchant"
+    print("✓ test_verified_merchant_registry_not_name_based: PASSED")
+
+
+def test_alert_budget_policy_caps_drift():
+    """Under upward score drift a fixed cutoff over-alerts; the rolling budget keeps ~budget."""
+    rng = np.random.default_rng(0)
+    n = 40_000
+    drift = np.linspace(0.05, 0.40, n)    # ~1.4x the drift measured in the simulation (see README)
+    scores = np.clip(drift * rng.uniform(0.6, 1.1, size=n), 0.0, 1.0)
+    static = 0.2
+    seed = scores[:500]
+    static_rate = float(np.mean(scores >= static))
+    policy_rate = float(rolling_budget_alerts(scores, seed, static, alert_budget=0.05).mean())
+    assert static_rate > 0.3, "Sanity: the fixed cutoff over-alerts under drift"
+    # A trailing-window quantile lags drift, so it lands a little above the 5% budget (6.9% here;
+    # 5.0-5.2% on the simulation); it must still be several times below the fixed cutoff.
+    assert policy_rate < 0.08, f"Rolling budget must hold the alert rate near 5% (got {policy_rate:.3f})"
+    assert policy_rate < static_rate / 4
+
+    # Quiet period: the static cutoff must still prevent alerting on the top slice of normal traffic
+    quiet = rng.uniform(0.0, 0.2, size=2000)
+    assert effective_alert_threshold(quiet, 0.4331, 0.05) == 0.4331
+    # Too little history -> only the static cutoff applies
+    assert effective_alert_threshold(quiet[:10], 0.4331, 0.05) == 0.4331
+    print("✓ test_alert_budget_policy_caps_drift: PASSED")
+
+
+def test_windowed_features_are_stationary_and_past_only():
+    """Windowed counts must NOT keep growing with the length of the stream (the cumulative ones did),
+    must ignore events from the 'future' of the scored transaction, and flag first-time pairs."""
+    tr = TemporalGraphFeatureTracker(feature_set="windowed")
+    names = tr.feature_names
+    idx = {n: names.index(n) for n in ("sender_log1p_out_cnt_24h", "pair_log1p_repeat_cnt_72h", "pair_first_seen_flag",
+                                        "receiver_log1p_in_cnt_24h", "receiver_log1p_in_amount_24h")}
+    day = 86400
+    first_counts = []
+    for burst in range(5):                       # 5 identical bursts, 10 days apart
+        t0 = 1_000_000 + burst * 10 * day
+        for i in range(6):
+            f, _ = tr.extract_features(1, 2, 100.0, t0 + i * 600)
+            if i == 5:
+                first_counts.append(float(f[idx["sender_log1p_out_cnt_24h"]]))
+            tr.update(1, 2, t0 + i * 600, amount=100.0)
+    assert max(first_counts) - min(first_counts) < 1e-6, f"Windowed counts must be stationary, got {first_counts}"
+
+    cum = TemporalGraphFeatureTracker(feature_set="cumulative")
+    grown = []
+    for burst in range(5):
+        t0 = 1_000_000 + burst * 10 * day
+        for i in range(6):
+            f, _ = cum.extract_features(1, 2, 100.0, t0 + i * 600)
+            if i == 5:
+                grown.append(float(f[1]))
+            cum.update(1, 2, t0 + i * 600)
+    assert grown[-1] > grown[0] + 0.5, "Sanity: the legacy cumulative count does grow with stream length"
+
+    # first-time pair flag, repeat counter and past-only behaviour
+    t = TemporalGraphFeatureTracker(feature_set="windowed")
+    f, _ = t.extract_features(7, 8, 50.0, 5000)
+    assert f[idx["pair_first_seen_flag"]] == 1.0
+    t.update(7, 8, 5000, amount=50.0)
+    f, _ = t.extract_features(7, 8, 50.0, 5100)
+    assert f[idx["pair_first_seen_flag"]] == 0.0 and f[idx["pair_log1p_repeat_cnt_72h"]] > 0.0
+    f_old, _ = t.extract_features(7, 8, 50.0, 4000)      # scoring a transaction BEFORE the stored one
+    assert f_old[idx["receiver_log1p_in_cnt_24h"]] == 0.0, "Events later than the scored timestamp must be ignored"
+    print("✓ test_windowed_features_are_stationary_and_past_only: PASSED")
+
+
+def test_khop_subgraph_matches_full_graph():
+    """Scoring on the 2-hop in-neighbourhood must give the same logits as the whole graph."""
+    ENGINE.load_scenario("baseline")
+    rng = np.random.default_rng(3)
+    g = ENGINE.graph
+    n_edges = g.num_edges
+    full_x, full_ei = g.node_x(), g.edge_index()
+    worst = 0.0
+    for _ in range(25):
+        e = int(rng.integers(0, n_edges))
+        s_i, d_i = int(g.src[e]), int(g.dst[e])
+        feat = torch.randn(1, len(ENGINE.feature_names))
+        with torch.no_grad():
+            full = ENGINE.gnn_model(full_x, full_ei, feat, torch.tensor([s_i]), torch.tensor([d_i]))
+            sub_x, sub_ei, (sl, dl) = g.khop_inputs([s_i, d_i], hops=2)
+            sub = ENGINE.gnn_model(sub_x, sub_ei, feat, torch.tensor([sl]), torch.tensor([dl]))
+        worst = max(worst, float((full - sub).abs().max()))
+    assert worst < 1e-4, f"k-hop logits differ from full-graph logits by {worst}"
+    sub_x, sub_ei, _ = g.khop_inputs([int(g.src[0]), int(g.dst[0])], hops=2)
+    assert sub_x.size(0) < g.num_nodes / 5, "The subgraph must be far smaller than the whole graph"
+
+    # unseen account: zero features, no edges, no crash
+    sub_x, sub_ei, (a, b) = g.khop_inputs([g.num_nodes + 3, int(g.dst[0])], hops=2)
+    assert float(sub_x[a].abs().sum()) == 0.0
+    ENGINE.reset_state()
+    print(f"✓ test_khop_subgraph_matches_full_graph: PASSED (max logit diff {worst:.2e})")
+
+
+def test_api_key_and_rate_limit():
+    """UPI_API_KEY gates /api/*; the dashboard page stays reachable; bursts get HTTP 429."""
+    import asyncio
+    from aiohttp.test_utils import TestClient, TestServer
+
+    async def run():
+        os.environ["UPI_API_KEY"] = "unit-test-key"
+        async with TestClient(TestServer(create_app(rate_limit_per_min=600, burst=50))) as c:
+            assert (await c.get("/api/stream/state")).status == 401, "Missing key must be rejected"
+            assert (await c.get("/api/stream/state", headers={"X-API-Key": "wrong"})).status == 401
+            assert (await c.get("/api/stream/state", headers={"X-API-Key": "unit-test-key"})).status == 200
+            assert (await c.get("/")).status == 200, "Dashboard page itself is not gated"
+        os.environ.pop("UPI_API_KEY", None)
+        async with TestClient(TestServer(create_app(rate_limit_per_min=60, burst=3))) as c:
+            codes = [(await c.get("/api/metrics/latency")).status for _ in range(7)]
+            assert codes[:3] == [200, 200, 200] and 429 in codes[3:], f"Burst must be limited, got {codes}"
+
+    try:
+        asyncio.run(run())
+    finally:
+        os.environ.pop("UPI_API_KEY", None)
+    print("✓ test_api_key_and_rate_limit: PASSED")
+
+
+def test_holdout_simulator_is_valid_and_not_trivial():
+    """The independent UPI simulator must respect UPI limits, contain every typology, be reproducible and
+    must NOT be separable by a single shortcut feature (v1 was: amount alone had AUC 0.98)."""
+    from sklearn.metrics import roc_auc_score
+    try:
+        from src.generate_upi_simulation import generate
+    except ImportError:
+        from generate_upi_simulation import generate
+    a = generate(seed=3, n_people=900, n_merchants=40, n_billers=8, n_payroll=2, days=10)
+    b = generate(seed=3, n_people=900, n_merchants=40, n_billers=8, n_payroll=2, days=10)
+    assert a.equals(b), "Simulator must be deterministic for a given seed"
+    assert float(a["amount"].max()) <= 100_000.0, "UPI per-transaction limit (INR 1 lakh) must hold"
+    assert float(a["amount"].min()) >= 1.0
+    assert set(a["typology"]) >= {"normal", "collection_mule", "relay_chain", "structuring", "circular_ring", "fresh_account_scam"}
+    assert (a["sender_upi"] != a["receiver_upi"]).all(), "No self-payments"
+    assert a["timestamp_seconds"].is_monotonic_increasing and a["transaction_id"].is_unique
+    prev = float(a["is_laundering"].mean())
+    assert 0.001 < prev < 0.06, f"Prevalence out of range: {prev:.4f}"
+    auc_amount = roc_auc_score(a["is_laundering"], a["amount"])
+    assert auc_amount < 0.95, f"Amount alone separates laundering (AUC {auc_amount:.3f}) - the simulator has a shortcut"
+    print(f"✓ test_holdout_simulator_is_valid_and_not_trivial: PASSED (prevalence {prev:.2%}, amount-only AUC {auc_amount:.2f})")
+
+
+def test_sar_uses_engine_model_version_and_resolves_unscored_transactions():
+    """SAR must not hard-code blend weights, and must be filled in for a not-yet-streamed transaction."""
+    import asyncio
+    import json as _json
+    try:
+        from src.scoring_service import handle_copilot_analyst
+    except ImportError:
+        from scoring_service import handle_copilot_analyst
+
+    class Req:
+        can_read_body = True
+
+        def __init__(self, body):
+            self.body = body
+
+        async def json(self):
+            return self.body
+
+    ENGINE.load_scenario("baseline")
+    tx_id = int(ENGINE.stream_df.iloc[10]["transaction_id"])
+    resp = asyncio.run(handle_copilot_analyst(Req({"transaction_id": tx_id})))
+    sar = _json.loads(resp.text)
+    text = sar["editable_sar_text"]
+    assert "unknown@upi" not in text, "Unscored stream transactions must be resolved, not printed as unknown"
+    assert f"{ENGINE.w_xgb:.2f} * XGBoost + {ENGINE.w_gnn:.2f} * GraphSAGE" in text, "Blend weights must come from the checkpoint"
+    assert ENGINE.total_scored == 0, "Building a SAR must not change engine state"
+    missing = asyncio.run(handle_copilot_analyst(Req({"transaction_id": 123})))
+    assert missing.status == 404, "Unknown transaction ids must give a clear 404"
+    ENGINE.reset_state()
+    print("✓ test_sar_uses_engine_model_version_and_resolves_unscored_transactions: PASSED")
+
+
 def test_readme_and_reports_consistency():
     """Verify Bug P1-7: Metrics cited in README.md match committed JSON artifacts exactly."""
-    readme_text = (PROJECT_ROOT / "README.md").read_text()
+    readme_text = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
 
     # 1. AMLSim challenge numbers
     aml_metrics = json.loads((PROJECT_ROOT / "reports/amlsim_challenges/challenge_metrics.json").read_text())
@@ -304,8 +588,19 @@ if __name__ == "__main__":
     test_challenge_3_saved_suppression_mask()
     test_challenge_nodes_mapped_valid()
     test_copilot_type_safety_and_collection_mule()
+    test_consumer_advisory_uses_engine_alert_threshold()
+    test_dry_run_and_generated_ids()
+    test_graph_state_is_bounded_and_causal()
+    test_unseen_accounts_get_own_graph_node()
+    test_verified_merchant_registry_not_name_based()
+    test_alert_budget_policy_caps_drift()
+    test_windowed_features_are_stationary_and_past_only()
+    test_khop_subgraph_matches_full_graph()
+    test_api_key_and_rate_limit()
+    test_holdout_simulator_is_valid_and_not_trivial()
+    test_sar_uses_engine_model_version_and_resolves_unscored_transactions()
     test_readme_and_reports_consistency()
     print("\n=======================================================")
-    print("ALL 12 RIGOROUS SYSTEM TESTS PASSED! ZERO ERRORS ✅")
+    print("ALL 23 RIGOROUS SYSTEM TESTS PASSED! ZERO ERRORS ✅")
     print("ALL 13 BUGS FROM BUG REPORT 1 FULLY RESOLVED & VERIFIED!")
     print("=======================================================")

@@ -59,7 +59,7 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
 
         # Stage 2: XGBoost Inference
         t0 = time.perf_counter()
-        dmatrix = xgb.DMatrix(np.atleast_2d(features), feature_names=FEATURE_NAMES, nthread=1)
+        dmatrix = xgb.DMatrix(np.atleast_2d(features), feature_names=ENGINE.feature_names, nthread=1)
         xgb_score = float(ENGINE.bst.predict(dmatrix)[0])
         t_xgb = (time.perf_counter() - t0) * 1000
 
@@ -71,9 +71,10 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
         with torch.no_grad():
             s_t = torch.tensor([s_idx], dtype=torch.long)
             d_t = torch.tensor([d_idx], dtype=torch.long)
+            # same path as the live service: 2-hop in-neighbourhood subgraph (identical logits, local cost)
+            sub_x, sub_ei, (s_loc, d_loc) = ENGINE.graph.khop_inputs([s_idx, d_idx], hops=2)
             gnn_logit = ENGINE.gnn_model(
-                ENGINE.dynamic_node_x, ENGINE.dynamic_edge_index,
-                tx_feat, s_t, d_t
+                sub_x, sub_ei, tx_feat, torch.tensor([s_loc], dtype=torch.long), torch.tensor([d_loc], dtype=torch.long)
             )
             gnn_score = float(torch.sigmoid(gnn_logit).item())
         t_gnn = (time.perf_counter() - t0) * 1000
@@ -86,12 +87,8 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
 
         # Stage 4: Graph Mutation strictly after scoring
         t0 = time.perf_counter()
-        ENGINE.tracker.update(s_node, d_node, t_sec)
-        ENGINE.dynamic_edge_src.append(s_idx)
-        ENGINE.dynamic_edge_dst.append(d_idx)
-        ENGINE.dynamic_edge_index = torch.tensor([ENGINE.dynamic_edge_src, ENGINE.dynamic_edge_dst], dtype=torch.long)
-        ENGINE.dynamic_node_x[s_idx] += torch.from_numpy(features) * 0.1
-        ENGINE.dynamic_node_x[d_idx] += torch.from_numpy(features) * 0.1
+        ENGINE.tracker.update(s_node, d_node, t_sec, amount=amt)
+        ENGINE.graph.commit(torch.tensor([s_idx]), torch.tensor([d_idx]), torch.from_numpy(features).unsqueeze(0))
         t_update = (time.perf_counter() - t0) * 1000
 
         t_total = t_feat + t_xgb + t_gnn + t_update
@@ -103,6 +100,33 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
 
     total_wall_time_s = time.perf_counter() - t0_benchmark
     arr = np.array(total_latencies)
+
+    # End-to-end pass through the REAL service code path (features + XGBoost + TreeSHAP
+    # explanation + GraphSAGE + evidence/result building + state commit). The staged numbers
+    # above leave out the explanation/result building, so they understate API latency.
+    ENGINE.load_scenario("baseline")
+    e2e_n = min(num_transactions, 500)
+    e2e_lat = []
+    for i in range(e2e_n):
+        row = ENGINE.stream_df.iloc[i % len(ENGINE.stream_df)]
+        payload = {
+            "transaction_id": int(row["transaction_id"]),
+            "sender_upi": str(row["sender_upi"]), "receiver_upi": str(row["receiver_upi"]),
+            "amount": float(row["amount"]), "timestamp": int(row["timestamp_seconds"]),
+        }
+        t0 = time.perf_counter()
+        ENGINE.score_transaction(payload)
+        e2e_lat.append((time.perf_counter() - t0) * 1000)
+    e2e = np.array(e2e_lat)
+    e2e_stats = {
+        "transactions": e2e_n,
+        "mean": round(float(np.mean(e2e)), 2),
+        "median_p50": round(float(np.median(e2e)), 2),
+        "p95": round(float(np.percentile(e2e, 95)), 2),
+        "p99": round(float(np.percentile(e2e, 99)), 2),
+        "max": round(float(np.max(e2e)), 2),
+        "throughput_tx_per_second": round(float(1000.0 / np.mean(e2e)), 1),
+    }
 
     mean_lat = float(np.mean(arr))
     median_lat = float(np.median(arr))
@@ -116,7 +140,7 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
     status_p50 = "PASS" if median_lat < 50.0 else "FAIL"
     status_p95 = "PASS" if p95_lat < 200.0 else "FAIL"
     status_p99 = "PASS" if p99_lat < 300.0 else "FAIL"
-    overall_pass = p95_lat < 200.0
+    overall_pass = float(np.percentile(e2e, 95)) < 200.0
 
     report_data = {
         "benchmark_timestamp": datetime.now(timezone.utc).isoformat(),
@@ -130,6 +154,7 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
             "graphsage_convolution_mean": round(float(np.mean(stage_gnn_times)), 3),
             "graph_mutation_mean": round(float(np.mean(stage_update_times)), 3)
         },
+        "end_to_end_score_transaction_ms": e2e_stats,
         "latency_metrics_ms": {
             "mean": round(mean_lat, 2),
             "median_p50": round(median_lat, 2),
@@ -142,7 +167,8 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
             "target_threshold_ms": 200.0,
             "compliance_percentage": round(sub_200ms_rate * 100, 2),
             "target_achieved": overall_pass,
-            "verdict": f"{'PASS' if overall_pass else 'FAIL'}: Median ({median_lat:.2f} ms) and p95 ({p95_lat:.2f} ms) latency conform to SLA."
+            "basis": "end_to_end_score_transaction_ms.p95",
+            "verdict": f"{'PASS' if overall_pass else 'FAIL'}: end-to-end p50 {e2e_stats['median_p50']:.2f} ms, p95 {e2e_stats['p95']:.2f} ms vs 200 ms target."
         }
     }
 
@@ -156,7 +182,9 @@ def run_latency_benchmark(num_transactions: int = 1000, output_dir: Path = Path(
         "# Real-Time Risk Scoring API Latency Benchmark Report",
         "",
         "## 1. Executive Summary",
-        f"- **Tested Transactions**: {num_transactions:,} incoming sequential events.",
+        f"- **End-to-end API path (`score_transaction`, incl. SHAP explanation), {e2e_stats['transactions']} tx**: p50 **{e2e_stats['median_p50']:.2f} ms**, p95 **{e2e_stats['p95']:.2f} ms**, p99 **{e2e_stats['p99']:.2f} ms**, ~{e2e_stats['throughput_tx_per_second']:.0f} tx/s. The verdict below is based on this.",
+        "- The staged numbers in sections 2-3 time only feature extraction, XGBoost, GraphSAGE and the graph update (no explanation/result building), so they are a lower bound, not API latency.",
+        f"- **Tested Transactions (staged)**: {num_transactions:,} incoming sequential events.",
         f"- **Throughput**: **{throughput_tps:,.1f} transactions / second**.",
         f"- **Median Latency (p50)**: **{median_lat:.2f} ms**.",
         f"- **95th Percentile Latency (p95)**: **{p95_lat:.2f} ms**.",

@@ -1,0 +1,369 @@
+{
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "feature_sets": [
+    "windowed",
+    "cumulative"
+  ],
+  "summary": {
+    "windowed": {
+      "Baseline (Standard AMLSim)": {
+        "xgboost_ap": {
+          "mean": 0.7775,
+          "std": 0.0005
+        },
+        "graphsage_ap": {
+          "mean": 0.8329,
+          "std": 0.0073
+        },
+        "blend_ap": {
+          "mean": 0.8344,
+          "std": 0.0067
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0572,
+          "std": 0.0068
+        },
+        "policy_precision": {
+          "mean": 0.9514,
+          "std": 0.005
+        },
+        "policy_recall": {
+          "mean": 0.5816,
+          "std": 0.0049
+        },
+        "policy_alert_rate": {
+          "mean": 0.051,
+          "std": 0.0004
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.0739,
+          "std": 0.0036
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.6857,
+          "std": 0.0236
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.1785,
+          "std": 0.0165
+        }
+      },
+      "Challenge 1 (Disguised Suspicious)": {
+        "xgboost_ap": {
+          "mean": 0.6935,
+          "std": 0.0014
+        },
+        "graphsage_ap": {
+          "mean": 0.7222,
+          "std": 0.0213
+        },
+        "blend_ap": {
+          "mean": 0.7547,
+          "std": 0.0127
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0617,
+          "std": 0.0125
+        },
+        "policy_precision": {
+          "mean": 0.9016,
+          "std": 0.0076
+        },
+        "policy_recall": {
+          "mean": 0.5047,
+          "std": 0.0071
+        },
+        "policy_alert_rate": {
+          "mean": 0.0466,
+          "std": 0.0004
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.0607,
+          "std": 0.0037
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.5051,
+          "std": 0.0219
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.0921,
+          "std": 0.0075
+        }
+      },
+      "Challenge 2 (Benign Lookalike Hubs)": {
+        "xgboost_ap": {
+          "mean": 0.7403,
+          "std": 0.001
+        },
+        "graphsage_ap": {
+          "mean": 0.7821,
+          "std": 0.0157
+        },
+        "blend_ap": {
+          "mean": 0.7868,
+          "std": 0.0092
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0462,
+          "std": 0.0098
+        },
+        "policy_precision": {
+          "mean": 0.8808,
+          "std": 0.0135
+        },
+        "policy_recall": {
+          "mean": 0.5588,
+          "std": 0.0075
+        },
+        "policy_alert_rate": {
+          "mean": 0.0518,
+          "std": 0.0003
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.0878,
+          "std": 0.002
+        },
+        "benign_hub_alert_fraction": {
+          "mean": 0.263,
+          "std": 0.0323
+        },
+        "prevalence_1pct_precision": {
+          "mean": 0.4578,
+          "std": 0.032
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.0776,
+          "std": 0.0093
+        }
+      },
+      "Challenge 3 (Partial History 50%)": {
+        "xgboost_ap": {
+          "mean": 0.7569,
+          "std": 0.0008
+        },
+        "graphsage_ap": {
+          "mean": 0.8224,
+          "std": 0.0082
+        },
+        "blend_ap": {
+          "mean": 0.8249,
+          "std": 0.0078
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0681,
+          "std": 0.0078
+        },
+        "policy_precision": {
+          "mean": 0.9728,
+          "std": 0.0047
+        },
+        "policy_recall": {
+          "mean": 0.577,
+          "std": 0.0063
+        },
+        "policy_alert_rate": {
+          "mean": 0.0494,
+          "std": 0.0005
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.0605,
+          "std": 0.0021
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.7996,
+          "std": 0.0285
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.286,
+          "std": 0.0365
+        }
+      }
+    },
+    "cumulative": {
+      "Baseline (Standard AMLSim)": {
+        "xgboost_ap": {
+          "mean": 0.7642,
+          "std": 0.0016
+        },
+        "graphsage_ap": {
+          "mean": 0.7807,
+          "std": 0.0173
+        },
+        "blend_ap": {
+          "mean": 0.7886,
+          "std": 0.0118
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0246,
+          "std": 0.012
+        },
+        "policy_precision": {
+          "mean": 0.9155,
+          "std": 0.0112
+        },
+        "policy_recall": {
+          "mean": 0.569,
+          "std": 0.0091
+        },
+        "policy_alert_rate": {
+          "mean": 0.0518,
+          "std": 0.0003
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.1613,
+          "std": 0.0366
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.5475,
+          "std": 0.0343
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.1077,
+          "std": 0.0127
+        }
+      },
+      "Challenge 1 (Disguised Suspicious)": {
+        "xgboost_ap": {
+          "mean": 0.4151,
+          "std": 0.0108
+        },
+        "graphsage_ap": {
+          "mean": 0.3312,
+          "std": 0.0356
+        },
+        "blend_ap": {
+          "mean": 0.4016,
+          "std": 0.0098
+        },
+        "blend_minus_xgb_ap": {
+          "mean": -0.013,
+          "std": 0.0102
+        },
+        "policy_precision": {
+          "mean": 0.5081,
+          "std": 0.0239
+        },
+        "policy_recall": {
+          "mean": 0.3049,
+          "std": 0.0087
+        },
+        "policy_alert_rate": {
+          "mean": 0.0501,
+          "std": 0.0012
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.1344,
+          "std": 0.0356
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.1032,
+          "std": 0.009
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.0113,
+          "std": 0.0011
+        }
+      },
+      "Challenge 2 (Benign Lookalike Hubs)": {
+        "xgboost_ap": {
+          "mean": 0.7461,
+          "std": 0.0021
+        },
+        "graphsage_ap": {
+          "mean": 0.7627,
+          "std": 0.0191
+        },
+        "blend_ap": {
+          "mean": 0.7713,
+          "std": 0.0136
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0252,
+          "std": 0.0134
+        },
+        "policy_precision": {
+          "mean": 0.8961,
+          "std": 0.0134
+        },
+        "policy_recall": {
+          "mean": 0.5722,
+          "std": 0.0103
+        },
+        "policy_alert_rate": {
+          "mean": 0.0522,
+          "std": 0.0003
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.1735,
+          "std": 0.036
+        },
+        "benign_hub_alert_fraction": {
+          "mean": 0.1054,
+          "std": 0.0398
+        },
+        "prevalence_1pct_precision": {
+          "mean": 0.4965,
+          "std": 0.0362
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.0896,
+          "std": 0.0118
+        }
+      },
+      "Challenge 3 (Partial History 50%)": {
+        "xgboost_ap": {
+          "mean": 0.764,
+          "std": 0.0008
+        },
+        "graphsage_ap": {
+          "mean": 0.7853,
+          "std": 0.0264
+        },
+        "blend_ap": {
+          "mean": 0.7943,
+          "std": 0.0166
+        },
+        "blend_minus_xgb_ap": {
+          "mean": 0.0304,
+          "std": 0.0167
+        },
+        "policy_precision": {
+          "mean": 0.9456,
+          "std": 0.0027
+        },
+        "policy_recall": {
+          "mean": 0.5613,
+          "std": 0.0127
+        },
+        "policy_alert_rate": {
+          "mean": 0.0495,
+          "std": 0.0012
+        },
+        "static_cutoff_alert_rate": {
+          "mean": 0.077,
+          "std": 0.0118
+        },
+        "benign_hub_alert_fraction": null,
+        "prevalence_1pct_precision": {
+          "mean": 0.6592,
+          "std": 0.0118
+        },
+        "prevalence_0.1pct_precision": {
+          "mean": 0.161,
+          "std": 0.0072
+        }
+      }
+    }
+  }
+}

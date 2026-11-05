@@ -41,3 +41,6 @@ external/AMLSim/sample/*.tgz
 
 # Local logs
 *.log
+
+# Held-out UPI simulation (regenerate: python src/generate_upi_simulation.py; seed 7 is deterministic)
+data/upi_holdout/*.csv

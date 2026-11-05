@@ -21,6 +21,10 @@ from typing import Dict, Any, List
 
 
 # Multilingual template dictionary for Consumer Safety Copilot
+# Fallback only: the scoring service passes the engine's calibrated alert threshold,
+# so consumer advisories flag exactly the scores the engine alerts on.
+DEFAULT_ALERT_THRESHOLD = 0.4388
+
 CONSUMER_SAFETY_TEMPLATES = {
     "en": {
         "title": "UPI Payment Safety Advisory",
@@ -127,7 +131,7 @@ class BankAnalystCopilot:
             shap_feats = case_data.get("top_shap_features", [])
 
         current_year = datetime.now(timezone.utc).year
-        model_version = "Deployed Blend (0.75 * XGBoost + 0.25 * GraphSAGE-AMLSim)"
+        model_version = str(case_data.get("model_version") or "Deployed Blend (XGBoost + GraphSAGE, AMLSim-trained)")
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         # Draft structured SAR Narrative conditionally based on assessed risk
@@ -171,7 +175,9 @@ class BankAnalystCopilot:
         narrative_lines += [
             "",
             "3. GRAPH EVIDENCE & SUPPORTING TRANSACTIONS:",
-            f"   GNNExplainer identified {len(subgraph)} prior transaction edge(s) as primary topological evidence:"
+            f"   GNNExplainer ranked {len(subgraph)} prior transaction edge(s) as the most influential candidates:",
+            "   (Indicative only: in our fidelity test, removing these edges did not change the model score",
+            "   significantly more than removing random edges - treat as leads for the investigator, not proof.)"
         ]
 
         if len(subgraph) > 0:
@@ -255,8 +261,13 @@ class ConsumerSafetyCopilot:
         recent_risk_score: float = 0.05,
         total_prior_events: int = 15,
         language: str = "en",
-        is_retail_hub: bool = False
+        is_retail_hub: bool = False,
+        alert_threshold: float = DEFAULT_ALERT_THRESHOLD
     ) -> Dict[str, Any]:
+        try:
+            alert_threshold = float(alert_threshold)
+        except (ValueError, TypeError):
+            alert_threshold = DEFAULT_ALERT_THRESHOLD
         try:
             recent_risk_score = float(recent_risk_score)
         except (ValueError, TypeError):
@@ -273,9 +284,9 @@ class ConsumerSafetyCopilot:
 
         # Determine status: verified retail merchants or high-counterparty merchants are not mules
         is_sparse = total_prior_events < 3
-        is_high_risk = (recent_risk_score >= 0.50) and not is_retail_hub
+        is_high_risk = (recent_risk_score >= alert_threshold) and not is_retail_hub
 
-        if is_sparse:
+        if is_sparse and not is_retail_hub:   # a registry-verified merchant is not 'unknown' just because this network has not seen it yet
             status = "SPARSE_HISTORY"
             category = "CAUTION"
             title = tmpl["sparse_title"]
